@@ -66,7 +66,7 @@ export class AdminService {
           where: MAIN_COMPANY,
           orderBy: { createdAt: 'desc' },
           take: 6,
-          select: { id: true, nom: true, raisonsociale: true, email: true, createdAt: true, enabled: true },
+          select: { id: true, nom: true, raisonsociale: true, email: true, createdAt: true, activated: true },
         }),
         this.prisma.texte.findMany({
           where: { deleted: false },
@@ -133,7 +133,7 @@ export class AdminService {
         take: pageSize,
         select: {
           id: true, nom: true, raisonsociale: true, email: true, ville: true, tel: true,
-          fonction: true, createdAt: true, updatedAt: true, enabled: true,
+          fonction: true, createdAt: true, updatedAt: true, activated: true,
         },
       }),
     ]);

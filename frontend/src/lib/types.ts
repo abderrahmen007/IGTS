@@ -132,7 +132,7 @@ export interface AdminOverview {
     raisonsociale: string | null;
     email: string;
     createdAt: string;
-    enabled: boolean;
+    activated: boolean;
     stats?: ComplianceStats;
   }[];
   recentTexts: {
@@ -157,7 +157,7 @@ export interface AdminCompany {
   fonction: string | null;
   createdAt: string;
   updatedAt: string | null;
-  enabled: boolean;
+  activated: boolean;
   subAccounts: number;
   stats?: ComplianceStats;
 }

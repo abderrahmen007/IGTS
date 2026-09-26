@@ -1,8 +1,10 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import {
   Badge,
+  Button,
   Card,
   EmptyState,
   ErrorState,
@@ -16,11 +18,14 @@ import {
   th,
 } from "@/components/ui";
 import { useApi } from "@/lib/use-api";
+import { NewCompanyModal } from "@/components/admin/new-company-modal";
 import { useDebounced, useUrlState } from "@/lib/use-url-state";
 import { formatDate, formatNumber, formatPercent } from "@/lib/format";
 import type { AdminCompany, Paginated } from "@/lib/types";
 
 function CompaniesView() {
+  const router = useRouter();
+  const [creating, setCreating] = useState(false);
   const [q, setQ] = useUrlState(["search", "page"] as const);
   const [search, setSearch] = useState(q.search);
   const debounced = useDebounced(search);
@@ -37,7 +42,20 @@ function CompaniesView() {
 
   return (
     <>
-      <PageHeader title="Entreprises" description="Entreprises clientes de la plateforme et avancement de leur conformité." />
+      <PageHeader
+        title="Entreprises"
+        description="Entreprises clientes de la plateforme et avancement de leur conformité."
+        actions={
+          <Button icon="plus" onClick={() => setCreating(true)}>
+            Nouvelle entreprise
+          </Button>
+        }
+      />
+      <NewCompanyModal
+        open={creating}
+        onClose={() => setCreating(false)}
+        onCreated={(d) => router.push(`/dashboard/companies/${d.company.id}`)}
+      />
 
       <Card>
         <div className="flex flex-col gap-3 border-b border-ink-150 px-5 py-3 sm:flex-row sm:items-center">
@@ -84,9 +102,13 @@ function CompaniesView() {
                 {data?.items.map((c) => {
                   const st = c.stats;
                   return (
-                    <tr key={c.id} className="hover:bg-ink-50/60">
+                    <tr
+                      key={c.id}
+                      onClick={() => router.push(`/dashboard/companies/${c.id}`)}
+                      className="cursor-pointer hover:bg-ink-50"
+                    >
                       <td className={td}>
-                        <p className="font-medium text-ink-900">{c.raisonsociale || c.nom}</p>
+                        <p className="font-medium text-ink-900 group-hover:text-brand-700">{c.raisonsociale || c.nom}</p>
                         <p className="text-[13px] text-ink-500">
                           {[c.ville, `client depuis ${formatDate(c.createdAt)}`].filter(Boolean).join(" · ")}
                         </p>
@@ -121,7 +143,7 @@ function CompaniesView() {
                         {formatPercent(st?.complianceRate)}
                       </td>
                       <td className={td}>
-                        <Badge tone={c.enabled ? "ok" : "neutral"}>{c.enabled ? "Actif" : "Désactivé"}</Badge>
+                        <Badge tone={c.activated ? "ok" : "neutral"}>{c.activated ? "Actif" : "Désactivé"}</Badge>
                       </td>
                     </tr>
                   );

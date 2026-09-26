@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import {
   Badge,
@@ -7,6 +8,7 @@ import {
   Card,
   EmptyState,
   ErrorState,
+  LinkButton,
   PageHeader,
   Pagination,
   SearchInput,
@@ -24,6 +26,7 @@ import type { AdminText, Paginated, Ref } from "@/lib/types";
 type Response = Paginated<AdminText> & { filters: { secteurs: Ref[]; types: Ref[] } };
 
 function TextsView() {
+  const router = useRouter();
   const [q, setQ] = useUrlState(["search", "secteurId", "typeId", "page"] as const);
   const [search, setSearch] = useState(q.search);
   const debounced = useDebounced(search);
@@ -46,6 +49,11 @@ function TextsView() {
       <PageHeader
         title="Textes réglementaires"
         description="Référentiel des textes publiés sur la plateforme et nombre d’entreprises concernées."
+        actions={
+          <LinkButton href="/dashboard/texts/new" variant="primary" icon="plus">
+            Nouveau texte
+          </LinkButton>
+        }
       />
 
       <Card>
@@ -130,7 +138,11 @@ function TextsView() {
                     </tr>
                   ))}
                 {data?.items.map((t) => (
-                  <tr key={t.id} className="hover:bg-ink-50/60">
+                  <tr
+                    key={t.id}
+                    onClick={() => router.push(`/dashboard/texts/${t.id}`)}
+                    className="cursor-pointer hover:bg-ink-50"
+                  >
                     <td className={cn(td, "max-w-[520px]")}>
                       <p className="font-medium text-ink-900">{t.titre}</p>
                       <p className="text-[13px] text-ink-500">

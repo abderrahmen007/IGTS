@@ -5,10 +5,11 @@ import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/shell/sidebar";
 import { Topbar } from "@/components/shell/topbar";
 import { SessionContext } from "@/components/session-context";
+import { OverlayProvider } from "@/components/overlay";
 import { Spinner } from "@/components/ui";
 import { getSession, type SessionUser } from "@/lib/session";
 
-const ADMIN_ONLY = ["/dashboard/companies", "/dashboard/texts"];
+const ADMIN_ONLY = ["/dashboard/companies", "/dashboard/texts", "/dashboard/referentiel", "/dashboard/admins"];
 const COMPANY_ONLY = ["/dashboard/my-texts", "/dashboard/evaluations", "/dashboard/actions", "/dashboard/chat"];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -46,6 +47,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <SessionContext.Provider value={user}>
+      <OverlayProvider>
       <div className="min-h-screen lg:pl-60">
         {/* Desktop sidebar */}
         <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 lg:block">
@@ -67,6 +69,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <main className="mx-auto w-full max-w-[1280px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
         </div>
       </div>
+      </OverlayProvider>
     </SessionContext.Provider>
   );
 }

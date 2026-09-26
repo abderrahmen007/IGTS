@@ -43,6 +43,21 @@ l'ancienne plateforme (argon2id) fonctionnent tels quels.
   La colonne `courrielResponsable` contient en réalité l'**effectivité en %** (reprise de l'ancien écran).
 - **Taux de conformité** affiché = conformes ÷ (conformes + non conformes).
 
+## Espace administrateur (parité avec Symfony)
+
+| Écran | Fonctions |
+|---|---|
+| Entreprises | créer, modifier, mot de passe, activer/désactiver, supprimer (logique) ; fiche avec secteurs et thèmes suivis, textes de la veille (ajout/retrait), utilisateurs rattachés (multicompte) |
+| Textes réglementaires | créer (avec PDF), modifier, supprimer, supprimer définitivement, affecter à des entreprises |
+| Secteurs, thèmes, types | créer, renommer, supprimer (refusé s'ils sont utilisés) |
+| Administrateurs | créer, modifier, mot de passe, activer/désactiver, supprimer |
+
+Règles reprises de Symfony :
+- Un nouveau texte est ajouté automatiquement (statut « Non analysé ») à toutes les entreprises abonnées à son secteur + thème, avec une notification.
+- Retirer un secteur ou un thème d'une entreprise supprime les textes, évaluations, actions et notifications correspondants (confirmation obligatoire, avec le nombre d'éléments impactés).
+- La désactivation d'une entreprise utilise la colonne `activated` (celle que vérifie la connexion).
+- Les PDF envoyés depuis la nouvelle plateforme sont stockés dans `backend/uploads/textes` ; les anciens PDF sont servis depuis veille.inter-gts.com.
+
 ## Points d'attention
 
 - Ne jamais lancer `prisma migrate` / `db push` sur la base de production tant que Symfony l'utilise.

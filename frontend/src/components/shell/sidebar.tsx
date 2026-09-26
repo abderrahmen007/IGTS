@@ -36,6 +36,13 @@ const NAV: Record<AccountType, { title?: string; items: NavItem[] }[]> = {
         { href: "/dashboard/texts", label: "Textes réglementaires", icon: "library" },
       ],
     },
+    {
+      title: "Paramètres",
+      items: [
+        { href: "/dashboard/referentiel", label: "Secteurs, thèmes, types", icon: "listChecks" },
+        { href: "/dashboard/admins", label: "Administrateurs", icon: "shield" },
+      ],
+    },
   ],
 };
 

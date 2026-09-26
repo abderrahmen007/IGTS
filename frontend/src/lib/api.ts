@@ -68,3 +68,21 @@ export async function api<T>(
   }
   return data as T;
 }
+
+/** Multipart request (file uploads). */
+export async function apiForm<T>(path: string, method: "POST" | "PATCH", form: FormData): Promise<T> {
+  const session = getSession();
+  let res: Response;
+  try {
+    res = await fetch(API_URL + path, {
+      method,
+      headers: session ? { Authorization: `Bearer ${session.token}` } : {},
+      body: form,
+    });
+  } catch {
+    throw new ApiError("Impossible de joindre le serveur. Vérifiez votre connexion.", 0);
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new ApiError(messageFrom(data, res.status), res.status);
+  return data as T;
+}

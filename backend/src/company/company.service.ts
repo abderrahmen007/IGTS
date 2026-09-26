@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { FilesService } from '../files/files.service';
 import { AuthUser } from '../common/auth-user';
 import { clampPage, htmlToText, parseFrenchDate, toFrenchDate } from '../common/text-utils';
 import {
@@ -80,17 +80,10 @@ export function computeStats(
 
 @Injectable()
 export class CompanyService {
-  private readonly uploadsUrl: string;
-
   constructor(
     private prisma: PrismaService,
-    config: ConfigService,
-  ) {
-    this.uploadsUrl = (
-      config.get<string>('LEGACY_UPLOADS_URL') ??
-      'https://veille.inter-gts.com/uploads/texte/photos'
-    ).replace(/\/$/, '');
-  }
+    private files: FilesService,
+  ) {}
 
   private scope(user: AuthUser): Prisma.TexteSocieteWhereInput {
     return { companyId: user.ownerId!, ...NOT_DELETED, texte: { deleted: false } };
@@ -288,7 +281,7 @@ export class CompanyService {
         type: t.type ? { id: t.type.id, name: t.type.name } : null,
         theme: t.theme ? { id: t.theme.id, name: t.theme.name } : null,
         secteur: secteur ? { id: secteur.id, name: secteur.name } : null,
-        pdfUrl: t.tmpphoto ? `${this.uploadsUrl}/${encodeURIComponent(t.tmpphoto)}` : null,
+        pdfUrl: this.files.pdfUrl(t.tmpphoto),
         addedAt: t.createdAt,
       },
       assignedAt: ts.createdAt,

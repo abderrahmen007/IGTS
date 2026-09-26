@@ -33,3 +33,6 @@ backend/.agents/
 backend/.claude/
 backend/.cursor/
 backend/.devin/
+
+# Uploaded files
+backend/uploads/

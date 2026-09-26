@@ -41,7 +41,9 @@ export class AuthService {
     if (!company || !(await this.verifyPassword(company.password, dto.password))) {
       throw new UnauthorizedException(INVALID);
     }
-    if (!company.enabled || company.deleted) {
+    // Same rule as the legacy CompanyChecker: deleted accounts and
+    // deactivated ("activated = false") accounts cannot log in.
+    if (company.deleted || !company.activated) {
       throw new UnauthorizedException('Ce compte est désactivé. Contactez IGTS.');
     }
 
