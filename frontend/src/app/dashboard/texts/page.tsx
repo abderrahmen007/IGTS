@@ -1,28 +1,183 @@
-'use client';
+"use client";
 
-export default function AdminTextsPage() {
+import { Suspense, useEffect, useState } from "react";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  Pagination,
+  SearchInput,
+  Select,
+  Skeleton,
+  cn,
+  td,
+  th,
+} from "@/components/ui";
+import { useApi } from "@/lib/use-api";
+import { useDebounced, useUrlState } from "@/lib/use-url-state";
+import { formatDate, formatNumber } from "@/lib/format";
+import type { AdminText, Paginated, Ref } from "@/lib/types";
+
+type Response = Paginated<AdminText> & { filters: { secteurs: Ref[]; types: Ref[] } };
+
+function TextsView() {
+  const [q, setQ] = useUrlState(["search", "secteurId", "typeId", "page"] as const);
+  const [search, setSearch] = useState(q.search);
+  const debounced = useDebounced(search);
+  useEffect(() => {
+    if (debounced !== q.search) setQ({ search: debounced });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debounced]);
+
+  const { data, error, loading, reload } = useApi<Response>("/admin/texts", {
+    search: q.search,
+    secteurId: q.secteurId,
+    typeId: q.typeId,
+    page: q.page || 1,
+    pageSize: 25,
+  });
+  const hasFilters = Boolean(q.search || q.secteurId || q.typeId);
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-end">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800">Base de Données des Textes</h2>
-          <p className="text-sm text-slate-500 mt-1">Supervisez tous les textes juridiques et leur affectation.</p>
-        </div>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-          Saisie Manuelle
-        </button>
-      </div>
+    <>
+      <PageHeader
+        title="Textes réglementaires"
+        description="Référentiel des textes publiés sur la plateforme et nombre d’entreprises concernées."
+      />
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-12 text-center">
-        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
-          <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+      <Card>
+        <div className="flex flex-col gap-3 border-b border-ink-150 px-5 py-3 md:flex-row md:items-center">
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Titre, numéro, mot-clé…"
+            className="md:max-w-sm md:flex-1"
+          />
+          <div className="grid grid-cols-2 gap-3 md:flex">
+            <Select
+              aria-label="Secteur"
+              value={q.secteurId}
+              onChange={(e) => setQ({ secteurId: e.target.value })}
+              className="md:w-56"
+            >
+              <option value="">Tous les secteurs</option>
+              {data?.filters.secteurs.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+            <Select
+              aria-label="Type"
+              value={q.typeId}
+              onChange={(e) => setQ({ typeId: e.target.value })}
+              className="md:w-44"
+            >
+              <option value="">Tous les types</option>
+              {data?.filters.types.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          {hasFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon="x"
+              onClick={() => {
+                setSearch("");
+                setQ({ search: null, secteurId: null, typeId: null });
+              }}
+            >
+              Effacer
+            </Button>
+          )}
+          {data && (
+            <span className="tabular text-[13px] text-ink-500 md:ml-auto">
+              {formatNumber(data.total)} texte{data.total > 1 ? "s" : ""}
+            </span>
+          )}
         </div>
-        <h3 className="text-lg font-semibold text-slate-800 mb-2">Module en construction</h3>
-        <p className="text-slate-500 max-w-md mx-auto">
-          L'interface d'administration avancée des textes (qui complétera le Scraper IA) est en cours de portage.
-        </p>
-      </div>
-    </div>
+
+        {error ? (
+          <div className="p-5">
+            <ErrorState message={error} onRetry={reload} />
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[860px] text-sm">
+              <thead className="border-b border-ink-150 bg-ink-50/60">
+                <tr>
+                  <th className={th}>Texte</th>
+                  <th className={th}>Secteur · thème</th>
+                  <th className={th}>Ajouté le</th>
+                  <th className={cn(th, "text-right")}>Entreprises</th>
+                </tr>
+              </thead>
+              <tbody className={cn("divide-y divide-ink-150", loading && data && "opacity-60")}>
+                {loading &&
+                  !data &&
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <tr key={i}>
+                      <td className={td} colSpan={4}>
+                        <Skeleton className="h-4 w-full" />
+                      </td>
+                    </tr>
+                  ))}
+                {data?.items.map((t) => (
+                  <tr key={t.id} className="hover:bg-ink-50/60">
+                    <td className={cn(td, "max-w-[520px]")}>
+                      <p className="font-medium text-ink-900">{t.titre}</p>
+                      <p className="text-[13px] text-ink-500">
+                        {[t.type, t.journal, t.date].filter(Boolean).join(" · ")}
+                        {!t.hasPdf && <span className="ml-2 text-warn-700">PDF manquant</span>}
+                      </p>
+                    </td>
+                    <td className={td}>
+                      <p className="text-ink-800">{t.secteur ?? "—"}</p>
+                      {t.theme && <p className="text-[13px] text-ink-500">{t.theme}</p>}
+                    </td>
+                    <td className={cn(td, "whitespace-nowrap text-ink-600")}>{formatDate(t.createdAt)}</td>
+                    <td className={cn(td, "text-right")}>
+                      {t.assignments > 0 ? (
+                        <span className="tabular text-ink-800">{formatNumber(t.assignments)}</span>
+                      ) : (
+                        <Badge tone="warn">Non affecté</Badge>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {data && data.items.length === 0 && (
+              <EmptyState icon="search" title="Aucun texte trouvé" description="Modifiez la recherche ou les filtres." />
+            )}
+          </div>
+        )}
+
+        {data && (
+          <Pagination
+            page={data.page}
+            pageCount={data.pageCount}
+            total={data.total}
+            pageSize={data.pageSize}
+            onPage={(p) => setQ({ page: p }, { resetPage: false })}
+          />
+        )}
+      </Card>
+    </>
+  );
+}
+
+export default function TextsPage() {
+  return (
+    <Suspense>
+      <TextsView />
+    </Suspense>
   );
 }

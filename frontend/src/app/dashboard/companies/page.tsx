@@ -1,28 +1,157 @@
-'use client';
+"use client";
+
+import { Suspense, useEffect, useState } from "react";
+import {
+  Badge,
+  Card,
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  Pagination,
+  SearchInput,
+  Skeleton,
+  StackedBar,
+  cn,
+  td,
+  th,
+} from "@/components/ui";
+import { useApi } from "@/lib/use-api";
+import { useDebounced, useUrlState } from "@/lib/use-url-state";
+import { formatDate, formatNumber, formatPercent } from "@/lib/format";
+import type { AdminCompany, Paginated } from "@/lib/types";
+
+function CompaniesView() {
+  const [q, setQ] = useUrlState(["search", "page"] as const);
+  const [search, setSearch] = useState(q.search);
+  const debounced = useDebounced(search);
+  useEffect(() => {
+    if (debounced !== q.search) setQ({ search: debounced });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debounced]);
+
+  const { data, error, loading, reload } = useApi<Paginated<AdminCompany>>("/admin/companies", {
+    search: q.search,
+    page: q.page || 1,
+    pageSize: 25,
+  });
+
+  return (
+    <>
+      <PageHeader title="Entreprises" description="Entreprises clientes de la plateforme et avancement de leur conformité." />
+
+      <Card>
+        <div className="flex flex-col gap-3 border-b border-ink-150 px-5 py-3 sm:flex-row sm:items-center">
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Rechercher une entreprise, un contact, une ville…"
+            className="sm:max-w-sm sm:flex-1"
+          />
+          {data && (
+            <span className="tabular text-[13px] text-ink-500 sm:ml-auto">
+              {formatNumber(data.total)} entreprise{data.total > 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+
+        {error ? (
+          <div className="p-5">
+            <ErrorState message={error} onRetry={reload} />
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[880px] text-sm">
+              <thead className="border-b border-ink-150 bg-ink-50/60">
+                <tr>
+                  <th className={th}>Entreprise</th>
+                  <th className={th}>Contact principal</th>
+                  <th className={cn(th, "text-right")}>Textes</th>
+                  <th className={cn(th, "w-40")}>Évaluation</th>
+                  <th className={cn(th, "text-right")}>Conformité</th>
+                  <th className={th}>Statut</th>
+                </tr>
+              </thead>
+              <tbody className={cn("divide-y divide-ink-150", loading && data && "opacity-60")}>
+                {loading &&
+                  !data &&
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <tr key={i}>
+                      <td className={td} colSpan={6}>
+                        <Skeleton className="h-4 w-full" />
+                      </td>
+                    </tr>
+                  ))}
+                {data?.items.map((c) => {
+                  const st = c.stats;
+                  return (
+                    <tr key={c.id} className="hover:bg-ink-50/60">
+                      <td className={td}>
+                        <p className="font-medium text-ink-900">{c.raisonsociale || c.nom}</p>
+                        <p className="text-[13px] text-ink-500">
+                          {[c.ville, `client depuis ${formatDate(c.createdAt)}`].filter(Boolean).join(" · ")}
+                        </p>
+                      </td>
+                      <td className={td}>
+                        <p className="text-ink-800">
+                          {c.nom}
+                          {c.fonction && <span className="text-ink-500"> · {c.fonction}</span>}
+                        </p>
+                        <p className="text-[13px] text-ink-500">{c.email}</p>
+                        {c.subAccounts > 0 && (
+                          <p className="text-xs text-ink-500">+ {c.subAccounts} utilisateur(s) rattaché(s)</p>
+                        )}
+                      </td>
+                      <td className={cn(td, "tabular text-right text-ink-700")}>{formatNumber(st?.total)}</td>
+                      <td className={cn(td, "pt-[18px]")}>
+                        {st && st.total > 0 ? (
+                          <StackedBar
+                            segments={[
+                              { label: "Conformes", value: st.conforme, tone: "ok" },
+                              { label: "Non conformes", value: st.nonConforme, tone: "bad" },
+                              { label: "À titre indicatif", value: st.indicatif, tone: "info" },
+                              { label: "À analyser", value: st.toAnalyse, tone: "warn" },
+                              { label: "Non applicables", value: st.nonApplicable, tone: "neutral" },
+                            ]}
+                          />
+                        ) : (
+                          <span className="text-[13px] text-ink-400">Aucun texte</span>
+                        )}
+                      </td>
+                      <td className={cn(td, "tabular text-right font-medium text-ink-900")}>
+                        {formatPercent(st?.complianceRate)}
+                      </td>
+                      <td className={td}>
+                        <Badge tone={c.enabled ? "ok" : "neutral"}>{c.enabled ? "Actif" : "Désactivé"}</Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {data && data.items.length === 0 && (
+              <EmptyState icon="building" title="Aucune entreprise trouvée" description="Essayez une autre recherche." />
+            )}
+          </div>
+        )}
+
+        {data && (
+          <Pagination
+            page={data.page}
+            pageCount={data.pageCount}
+            total={data.total}
+            pageSize={data.pageSize}
+            onPage={(p) => setQ({ page: p }, { resetPage: false })}
+          />
+        )}
+      </Card>
+    </>
+  );
+}
 
 export default function CompaniesPage() {
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-end">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800">Gestion des Entreprises</h2>
-          <p className="text-sm text-slate-500 mt-1">Gérez les comptes clients et leurs accès.</p>
-        </div>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-          Ajouter une entreprise
-        </button>
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-12 text-center">
-        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
-          <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-        </div>
-        <h3 className="text-lg font-semibold text-slate-800 mb-2">Module en construction</h3>
-        <p className="text-slate-500 max-w-md mx-auto">
-          La liste complète des entreprises et l'édition de leurs profils sont en cours d'intégration depuis l'ancien système Symfony.
-        </p>
-      </div>
-    </div>
+    <Suspense>
+      <CompaniesView />
+    </Suspense>
   );
 }

@@ -1,115 +1,171 @@
-'use client';
+"use client";
 
-import { useState, useRef, useEffect } from 'react';
+import Link from "next/link";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { Button, Card, cn } from "@/components/ui";
+import { Icon } from "@/components/icons";
+import { api, ApiError } from "@/lib/api";
+
+interface Message {
+  role: "user" | "assistant";
+  text: string;
+  sources?: { id: number; titre: string }[];
+  error?: boolean;
+}
+
+const SUGGESTIONS = [
+  "Quelles sont mes obligations en matière de médecine du travail ?",
+  "Quels textes concernent la gestion des déchets ?",
+  "Dois-je réaliser un audit énergétique ?",
+  "Quelles règles s’appliquent au travail de nuit ?",
+];
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<{ role: 'user' | 'ai', content: string }[]>([
-    { role: 'ai', content: 'Bonjour ! Je suis votre assistant juridique IA. Posez-moi vos questions sur la réglementation tunisienne ou vos textes de loi.' }
-  ]);
-  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, loading]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
-
-    const userMessage = input.trim();
-    setInput('');
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+  const ask = async (question: string) => {
+    const q = question.trim();
+    if (q.length < 3 || loading) return;
+    setMessages((m) => [...m, { role: "user", text: q }]);
+    setInput("");
     setLoading(true);
-
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:3001/api/chatbot/ask', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ question: userMessage })
+      const res = await api<{ answer: string; sources: Message["sources"]; unavailable?: boolean }>("/chatbot/ask", {
+        method: "POST",
+        body: { question: q },
       });
-
-      const data = await res.json();
-      
-      if (res.ok) {
-        setMessages(prev => [...prev, { role: 'ai', content: data.answer }]);
-      } else {
-        throw new Error(data.message);
-      }
-    } catch (error) {
-      setMessages(prev => [...prev, { role: 'ai', content: 'Une erreur est survenue lors de la communication avec le serveur IA.' }]);
+      setMessages((m) => [...m, { role: "assistant", text: res.answer, sources: res.sources, error: res.unavailable }]);
+    } catch (e) {
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", text: e instanceof ApiError ? e.message : "Une erreur est survenue.", error: true },
+      ]);
     } finally {
       setLoading(false);
     }
   };
 
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    void ask(input);
+  };
+  const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void ask(input);
+    }
+  };
+
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-      {/* Header */}
-      <div className="bg-slate-900 px-6 py-4 flex items-center gap-4">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/20">
-          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-        </div>
-        <div>
-          <h2 className="text-white font-semibold">Assistant IA IGTS</h2>
-          <p className="text-slate-400 text-xs">Expert en veille réglementaire (Ollama)</p>
-        </div>
+    <div className="mx-auto flex h-[calc(100dvh-8rem)] max-w-3xl flex-col lg:h-[calc(100dvh-9rem)]">
+      <div className="mb-4">
+        <h1 className="text-xl font-semibold tracking-tight text-ink-950 sm:text-[22px]">Assistant juridique</h1>
+        <p className="mt-1 text-sm text-ink-600">
+          Posez une question : l’assistant répond uniquement à partir des textes de votre veille et cite ses sources.
+        </p>
       </div>
 
-      {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50">
-        {messages.map((msg, idx) => (
-          <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] rounded-2xl px-5 py-3.5 shadow-sm ${
-              msg.role === 'user' 
-                ? 'bg-blue-600 text-white rounded-tr-none' 
-                : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none'
-            }`}>
-              <p className="whitespace-pre-wrap leading-relaxed text-sm">{msg.content}</p>
+      <Card className="flex min-h-0 flex-1 flex-col">
+        <div className="flex-1 overflow-y-auto px-5 py-5">
+          {messages.length === 0 ? (
+            <div className="flex h-full flex-col justify-center">
+              <p className="text-sm font-medium text-ink-800">Exemples de questions</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => void ask(s)}
+                    className="rounded-md border border-ink-200 px-3.5 py-3 text-left text-[13.5px] text-ink-700 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-800"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-none px-5 py-4 shadow-sm flex gap-2">
-              <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce"></div>
-              <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-              <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+          ) : (
+            <div className="space-y-6">
+              {messages.map((m, i) =>
+                m.role === "user" ? (
+                  <div key={i} className="flex justify-end">
+                    <p className="max-w-[85%] whitespace-pre-line rounded-lg bg-brand-800 px-4 py-2.5 text-sm text-white">
+                      {m.text}
+                    </p>
+                  </div>
+                ) : (
+                  <div key={i} className="max-w-[92%]">
+                    <p
+                      className={cn(
+                        "whitespace-pre-line text-[14.5px] leading-relaxed",
+                        m.error ? "text-warn-700" : "text-ink-900",
+                      )}
+                    >
+                      {m.text}
+                    </p>
+                    {m.sources && m.sources.length > 0 && (
+                      <div className="mt-3 border-l-2 border-ink-200 pl-3">
+                        <p className="text-xs font-medium text-ink-500">Sources</p>
+                        <ol className="mt-1 space-y-1">
+                          {m.sources.map((s, j) => (
+                            <li key={s.id} className="text-[13px]">
+                              <span className="tabular mr-1.5 text-ink-400">[{j + 1}]</span>
+                              <Link href={`/dashboard/my-texts/${s.id}`} className="text-brand-700 hover:underline">
+                                {s.titre}
+                              </Link>
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+                  </div>
+                ),
+              )}
+              {loading && (
+                <div className="flex items-center gap-2 text-[13px] text-ink-500">
+                  <span className="flex gap-1">
+                    {[0, 1, 2].map((d) => (
+                      <span
+                        key={d}
+                        className="h-1.5 w-1.5 animate-pulse rounded-full bg-ink-400"
+                        style={{ animationDelay: `${d * 150}ms` }}
+                      />
+                    ))}
+                  </span>
+                  Recherche dans vos textes…
+                </div>
+              )}
+              <div ref={endRef} />
             </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+          )}
+        </div>
 
-      {/* Input Area */}
-      <div className="p-4 bg-white border-t border-slate-100">
-        <form onSubmit={handleSubmit} className="relative flex items-center">
-          <input 
-            type="text" 
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Posez votre question juridique ici..." 
-            className="w-full pl-5 pr-14 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
-            disabled={loading}
-          />
-          <button 
-            type="submit" 
-            disabled={loading || !input.trim()}
-            className="absolute right-2 p-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
-          </button>
+        <form onSubmit={submit} className="border-t border-ink-150 p-3">
+          <div className="flex items-end gap-2 rounded-md border border-ink-200 bg-white px-3 py-2 focus-within:border-brand-600 focus-within:ring-2 focus-within:ring-brand-100">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={onKey}
+              rows={1}
+              maxLength={1000}
+              placeholder="Votre question…"
+              aria-label="Votre question"
+              className="max-h-40 min-h-[24px] flex-1 resize-none bg-transparent py-1 text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none"
+            />
+            <Button type="submit" size="sm" disabled={input.trim().length < 3} loading={loading} aria-label="Envoyer">
+              {!loading && <Icon name="send" size={14} />}
+            </Button>
+          </div>
+          <p className="mt-2 px-1 text-xs text-ink-400">
+            Réponses indicatives, générées localement. Vérifiez toujours le texte officiel.
+          </p>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

@@ -1,185 +1,188 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, type FormEvent } from "react";
+import { Button, Field, Input, cn } from "@/components/ui";
+import { Icon } from "@/components/icons";
+import { api, ApiError } from "@/lib/api";
+import { getSession, saveSession, type AccountType, type SessionUser } from "@/lib/session";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [type, setType] = useState<AccountType>("company");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (getSession()) router.replace("/dashboard");
+    if (new URLSearchParams(window.location.search).get("expired")) {
+      setNotice("Votre session a expiré. Veuillez vous reconnecter.");
+    }
+  }, [router]);
+
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError(null);
+    setNotice(null);
     setLoading(true);
-
     try {
-      const res = await fetch('http://localhost:3001/api/auth/company/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const res = await api<{ access_token: string; user: SessionUser }>(`/auth/${type}/login`, {
+        method: "POST",
+        body: { email: email.trim(), password },
+        auth: false,
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Échec de la connexion');
-      }
-
-      // Store the JWT token and user data
-      localStorage.setItem('token', data.access_token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-
-      // Redirect to dashboard
-      router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Une erreur est survenue');
-    } finally {
+      saveSession({ token: res.access_token, user: res.user });
+      router.replace("/dashboard");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Connexion impossible.");
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 relative overflow-hidden">
-      {/* Animated background orbs */}
-      <div className="absolute top-[-120px] left-[-120px] w-[400px] h-[400px] rounded-full bg-blue-600/20 blur-[120px] animate-pulse" />
-      <div className="absolute bottom-[-150px] right-[-100px] w-[500px] h-[500px] rounded-full bg-indigo-600/15 blur-[150px] animate-pulse" style={{ animationDelay: '2s' }} />
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-cyan-500/5 blur-[180px]" />
+    <div className="flex min-h-screen bg-white">
+      {/* Brand panel */}
+      <aside className="relative hidden w-[44%] max-w-[620px] flex-col justify-between bg-brand-900 p-12 text-white lg:flex">
+        <Image src="/brand/igts-veille-white.png" alt="IGTS Veille" width={148} height={103} loading="eager" />
 
-      {/* Login Card */}
-      <div className="relative z-10 w-full max-w-md mx-4">
-        {/* Glassmorphism card */}
-        <div className="backdrop-blur-xl bg-white/[0.07] border border-white/[0.12] rounded-3xl shadow-2xl shadow-black/40 p-10">
-          {/* Logo & Header */}
-          <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-400 mb-5 shadow-lg shadow-blue-500/30">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">
-              IGTS Veille
-            </h1>
-            <p className="text-sm text-slate-400 mt-2">
-              Plateforme de Veille Réglementaire
-            </p>
+        <div className="max-w-md">
+          <h1 className="text-[28px] font-semibold leading-tight tracking-tight">
+            Veille réglementaire
+            <br />
+            santé, sécurité, environnement.
+          </h1>
+          <p className="mt-4 text-[15px] leading-relaxed text-white/70">
+            Retrouvez les textes applicables à votre activité, évaluez votre conformité et suivez vos plans
+            d’action, au même endroit.
+          </p>
+
+          <dl className="mt-10 grid grid-cols-3 gap-6 border-t border-white/15 pt-6">
+            {[
+              ["Textes", "suivis et résumés"],
+              ["Conformité", "évaluée texte par texte"],
+              ["Actions", "suivies jusqu’à clôture"],
+            ].map(([k, v]) => (
+              <div key={k}>
+                <dt className="text-sm font-semibold">{k}</dt>
+                <dd className="mt-1 text-[13px] leading-snug text-white/60">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <p className="text-xs text-white/45">
+          © {new Date().getFullYear()} IGTS — International Gold Training &amp; Services
+        </p>
+      </aside>
+
+      {/* Form */}
+      <main className="flex flex-1 items-center justify-center px-5 py-12 sm:px-10">
+        <div className="w-full max-w-[380px]">
+          <Image
+            src="/brand/igts-veille.png"
+            alt="IGTS Veille"
+            width={112}
+            height={78}
+            loading="eager"
+            className="mb-10 lg:hidden"
+          />
+
+          <h2 className="text-2xl font-semibold tracking-tight text-ink-950">Connexion</h2>
+          <p className="mt-1.5 text-sm text-ink-600">Accédez à votre espace de veille.</p>
+
+          <div
+            role="tablist"
+            aria-label="Type de compte"
+            className="mt-8 grid grid-cols-2 rounded-md border border-ink-200 bg-ink-50 p-0.5"
+          >
+            {(
+              [
+                ["company", "Entreprise"],
+                ["admin", "Administration IGTS"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={type === value}
+                onClick={() => {
+                  setType(value);
+                  setError(null);
+                }}
+                className={cn(
+                  "h-8 rounded-[5px] text-[13px] font-medium transition-colors",
+                  type === value ? "bg-white text-ink-900 shadow-sm ring-1 ring-ink-200" : "text-ink-600 hover:text-ink-900",
+                )}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex items-center gap-3">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="15" y1="9" x2="9" y2="15" />
-                <line x1="9" y1="9" x2="15" y2="15" />
-              </svg>
-              {error}
-            </div>
-          )}
-
-          {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Email Field */}
-            <div>
-              <label htmlFor="email" className="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">
-                Adresse e-mail
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="2" y="4" width="20" height="16" rx="2" />
-                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                  </svg>
-                </div>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  placeholder="votre@email.com"
-                  className="w-full pl-11 pr-4 py-3.5 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
-                />
+          <form onSubmit={submit} className="mt-6 space-y-4" noValidate>
+            {(error || notice) && (
+              <div
+                role="alert"
+                className={cn(
+                  "flex items-start gap-2.5 rounded-md border px-3 py-2.5 text-[13px]",
+                  error ? "border-bad-100 bg-bad-50 text-bad-700" : "border-info-100 bg-info-50 text-info-700",
+                )}
+              >
+                <Icon name={error ? "alert" : "info"} size={15} className="mt-0.5 shrink-0" />
+                {error ?? notice}
               </div>
-            </div>
+            )}
 
-            {/* Password Field */}
-            <div>
-              <label htmlFor="password" className="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">
-                Mot de passe
-              </label>
+            <Field label="Adresse e-mail" htmlFor="email">
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="nom@entreprise.tn"
+                className="h-10"
+              />
+            </Field>
+
+            <Field label="Mot de passe" htmlFor="password">
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                  </svg>
-                </div>
-                <input
+                <Input
                   id="password"
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
-                  placeholder="••••••••"
-                  className="w-full pl-11 pr-12 py-3.5 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
+                  className="h-10 pr-20"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-slate-300 transition-colors"
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute inset-y-0 right-0 px-3 text-[13px] font-medium text-ink-600 hover:text-ink-900"
                 >
-                  {showPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                      <line x1="1" y1="1" x2="23" y2="23" />
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  )}
+                  {showPassword ? "Masquer" : "Afficher"}
                 </button>
               </div>
-            </div>
+            </Field>
 
-            {/* Forgot Password Link */}
-            <div className="flex justify-end">
-              <a href="#" className="text-xs text-blue-400 hover:text-blue-300 transition-colors">
-                Mot de passe oublié ?
-              </a>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold rounded-xl shadow-lg shadow-blue-600/25 hover:shadow-blue-600/40 hover:from-blue-500 hover:to-cyan-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
-            >
-              {loading ? (
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Connexion...
-                </div>
-              ) : (
-                'Se connecter'
-              )}
-            </button>
+            <Button type="submit" loading={loading} disabled={!email || !password} className="h-10 w-full">
+              Se connecter
+            </Button>
           </form>
-        </div>
 
-        {/* Footer */}
-        <p className="text-center text-xs text-slate-600 mt-8">
-          © {new Date().getFullYear()} IGTS — International Gold Training & Services
-        </p>
-      </div>
+          <p className="mt-8 border-t border-ink-150 pt-6 text-[13px] leading-relaxed text-ink-500">
+            Mot de passe oublié ou accès à créer ? Contactez votre conseiller IGTS.
+          </p>
+        </div>
+      </main>
     </div>
   );
 }
