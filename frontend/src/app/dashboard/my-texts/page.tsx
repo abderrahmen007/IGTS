@@ -66,7 +66,7 @@ function MyTextsView() {
     <>
       <PageHeader
         title="Mes textes"
-        description="Textes réglementaires affectés à votre entreprise. Ouvrez un texte pour évaluer son applicabilité et votre conformité."
+        description="Tous les textes réglementaires suivis pour votre entreprise. Cliquez sur un texte pour le lire et l’évaluer."
       />
 
       <Card>
@@ -149,7 +149,7 @@ function MyTextsView() {
                   <th className={th}>Texte</th>
                   <th className={cn(th, "hidden lg:table-cell")}>Secteur</th>
                   <th className={th}>Statut</th>
-                  <th className={cn(th, "hidden md:table-cell")}>Dernière évaluation</th>
+                  <th className={cn(th, "hidden md:table-cell")}>Évalué le</th>
                 </tr>
               </thead>
               <tbody className={cn("divide-y divide-ink-150", loading && data && "opacity-60")}>
@@ -173,7 +173,7 @@ function MyTextsView() {
                       <Link
                         href={`/dashboard/my-texts/${t.id}`}
                         onClick={(e) => e.stopPropagation()}
-                        className="font-medium text-ink-900 hover:text-brand-700"
+                        className="text-[15px] font-medium text-ink-900 hover:text-brand-700"
                       >
                         {t.titre}
                       </Link>

@@ -47,7 +47,7 @@ export class ChatbotService {
     this.model = config.get<string>('OLLAMA_MODEL') ?? 'llama3';
   }
 
-  async ask(user: AuthUser, question: string) {
+  async ask(user: AuthUser, question: string, focusId?: number) {
     const rows = await this.prisma.texteSociete.findMany({
       where: {
         companyId: user.ownerId!,
@@ -69,6 +69,7 @@ export class ChatbotService {
         }
         return { r, score };
       })
+      .map((x) => (x.r.id === focusId ? { ...x, score: x.score + 1000 } : x))
       .filter((x) => x.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 6);

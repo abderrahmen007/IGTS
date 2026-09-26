@@ -192,12 +192,12 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
           )}
         </Modal>
 
-        <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[70] flex flex-col items-center gap-2 px-4 sm:bottom-6 sm:items-end sm:px-6" aria-live="polite">
+        <div className="pointer-events-none fixed inset-x-0 top-3 z-[70] flex flex-col items-center gap-2 px-4 sm:top-20 sm:items-end sm:px-6" aria-live="polite">
           {toasts.map((t) => (
             <div
               key={t.id}
               className={cn(
-                "animate-[rise_180ms_ease-out] pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border bg-white px-4 py-3 text-sm shadow-lg",
+                "animate-[drop_180ms_ease-out] pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border bg-white px-4 py-3 text-sm shadow-lg",
                 t.tone === "success" && "border-ok-100",
                 t.tone === "error" && "border-bad-100",
                 t.tone === "info" && "border-ink-200",

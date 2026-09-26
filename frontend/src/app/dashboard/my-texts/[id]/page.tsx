@@ -18,6 +18,8 @@ import {
   cn,
 } from "@/components/ui";
 import { StatusBadge } from "@/components/status-badge";
+import { APPLICABILITY_CHOICES, BigChoice, COMPLIANCE_CHOICES } from "@/components/big-choice";
+import { useToast } from "@/components/overlay";
 import { Icon } from "@/components/icons";
 import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
@@ -26,59 +28,12 @@ import type { ActionPlan, Ref, TextDetail } from "@/lib/types";
 
 // ─── Evaluation panel ────────────────────────────────────────────────
 
-function Choice({
-  name,
-  options,
-  value,
-  onChange,
-}: {
-  name: string;
-  options: { id: number; label: string; hint?: string }[];
-  value: number | null;
-  onChange: (id: number) => void;
-}) {
-  return (
-    <div className="space-y-1.5" role="radiogroup">
-      {options.map((o) => {
-        const checked = value === o.id;
-        return (
-          <label
-            key={o.id}
-            className={cn(
-              "flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2 transition-colors",
-              checked ? "border-brand-600 bg-brand-50" : "border-ink-200 hover:border-ink-300",
-            )}
-          >
-            <input
-              type="radio"
-              name={name}
-              checked={checked}
-              onChange={() => onChange(o.id)}
-              className="mt-0.5 accent-brand-700"
-            />
-            <span className="text-sm">
-              <span className={cn("font-medium", checked ? "text-brand-800" : "text-ink-800")}>{o.label}</span>
-              {o.hint && <span className="block text-xs text-ink-500">{o.hint}</span>}
-            </span>
-          </label>
-        );
-      })}
-    </div>
-  );
-}
-
-const APPLICABILITE_HINTS: Record<number, string> = {
-  1: "Le texte s’applique à votre activité",
-  2: "Le texte ne concerne pas votre activité",
-  3: "Pas encore examiné",
-};
-
 function EvaluationPanel({ detail, onSaved }: { detail: TextDetail; onSaved: (d: TextDetail) => void }) {
+  const toast = useToast();
   const [applicabiliteId, setApplicabiliteId] = useState<number>(detail.applicabilite.id);
   const [etatId, setEtatId] = useState<number | null>(detail.etat?.id ?? null);
   const [comment, setComment] = useState(detail.comment ?? "");
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     setApplicabiliteId(detail.applicabilite.id);
@@ -94,16 +49,19 @@ function EvaluationPanel({ detail, onSaved }: { detail: TextDetail; onSaved: (d:
   const save = async (e: FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setMessage(null);
     try {
       const updated = await api<TextDetail>(`/company/texts/${detail.id}/evaluation`, {
         method: "PATCH",
         body: { applicabiliteId, gestionetatId: applicabiliteId === 1 ? etatId : null, comment },
       });
       onSaved(updated);
-      setMessage({ ok: true, text: "Évaluation enregistrée." });
+      toast(
+        updated.etat?.id === 2
+          ? "Évaluation enregistrée. Pensez à ajouter une action pour vous mettre en règle."
+          : "Évaluation enregistrée.",
+      );
     } catch (err) {
-      setMessage({ ok: false, text: err instanceof ApiError ? err.message : "Enregistrement impossible." });
+      toast(err instanceof ApiError ? err.message : "Enregistrement impossible.", "error");
     } finally {
       setSaving(false);
     }
@@ -111,51 +69,31 @@ function EvaluationPanel({ detail, onSaved }: { detail: TextDetail; onSaved: (d:
 
   return (
     <Card>
-      <CardHeader title="Évaluation" actions={<StatusBadge applicabilite={detail.applicabilite} etat={detail.etat} />} />
-      <form onSubmit={save} className="space-y-5 px-5 py-5">
+      <CardHeader title="Votre évaluation" actions={<StatusBadge applicabilite={detail.applicabilite} etat={detail.etat} />} />
+      <form onSubmit={save} className="space-y-6 px-5 py-5">
         <div>
-          <p className="mb-2 text-[13px] font-medium text-ink-800">Applicabilité</p>
-          <Choice
-            name="applicabilite"
-            value={applicabiliteId}
-            onChange={setApplicabiliteId}
-            options={detail.options.applicabilites.map((a) => ({
-              id: a.id,
-              label: a.name ?? "",
-              hint: APPLICABILITE_HINTS[a.id],
-            }))}
-          />
+          <p className="mb-3 text-[15px] font-semibold text-ink-900">Ce texte concerne-t-il votre entreprise ?</p>
+          <BigChoice columns={1} options={APPLICABILITY_CHOICES} value={applicabiliteId} onChoose={setApplicabiliteId} />
         </div>
 
         {applicabiliteId === 1 && (
-          <div>
-            <p className="mb-2 text-[13px] font-medium text-ink-800">Conformité</p>
-            <Choice
-              name="etat"
-              value={etatId}
-              onChange={setEtatId}
-              options={detail.options.etats.map((e) => ({ id: e.id, label: e.name ?? "" }))}
-            />
+          <div className="animate-[rise_180ms_ease-out]">
+            <p className="mb-3 text-[15px] font-semibold text-ink-900">Êtes-vous en règle avec ce texte ?</p>
+            <BigChoice columns={1} options={COMPLIANCE_CHOICES} value={etatId} onChoose={setEtatId} />
           </div>
         )}
 
-        <Field label="Commentaire" htmlFor="comment" hint="Justification, preuves disponibles, points d’attention…">
+        <Field label="Remarque (facultatif)" htmlFor="comment" hint="Preuves disponibles, points d’attention…">
           <Textarea id="comment" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} maxLength={2000} />
         </Field>
-
-        {message && (
-          <p className={cn("text-[13px]", message.ok ? "text-ok-700" : "text-bad-700")} role="status">
-            {message.text}
-          </p>
-        )}
 
         <div className="flex items-center justify-between gap-3 border-t border-ink-150 pt-4">
           <p className="text-xs text-ink-500">
             {detail.evaluatedAt
               ? `Évalué le ${formatDate(detail.evaluatedAt)}${detail.evaluatedBy ? ` par ${detail.evaluatedBy}` : ""}`
-              : "Jamais évalué"}
+              : "Pas encore évalué"}
           </p>
-          <Button type="submit" loading={saving} disabled={!dirty}>
+          <Button type="submit" loading={saving} disabled={!dirty} className="h-10 px-5">
             Enregistrer
           </Button>
         </div>
@@ -308,8 +246,8 @@ function ActionsCard({ detail, onChange }: { detail: TextDetail; onChange: (d: T
   return (
     <Card>
       <CardHeader
-        title="Plan d’action"
-        description="Actions correctives pour se mettre en conformité"
+        title="Actions pour se mettre en règle"
+        description="Ce qu’il faut faire, qui s’en occupe et pour quand"
         actions={
           !adding && (
             <Button variant="secondary" size="sm" icon="plus" onClick={() => setAdding(true)}>
@@ -403,9 +341,9 @@ export default function TextDetailPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <Card>
-            <CardHeader title="Résumé du texte" />
+            <CardHeader title="Ce que dit le texte" />
             <div className="px-5 py-5">
-              <p className="whitespace-pre-line text-[15px] leading-relaxed text-ink-800">{t.description}</p>
+              <p className="whitespace-pre-line text-[16px] leading-[1.7] text-ink-800">{t.description}</p>
               <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-ink-150 pt-5 sm:grid-cols-3">
                 {meta.map(([k, v]) => (
                   <div key={k}>
@@ -424,7 +362,7 @@ export default function TextDetailPage() {
           <EvaluationPanel detail={data} onSaved={setData} />
 
           <Card>
-            <CardHeader title="Historique" />
+            <CardHeader title="Historique des évaluations" />
             {data.history.length ? (
               <ol className="px-5 py-4">
                 {data.history.map((h, i) => (

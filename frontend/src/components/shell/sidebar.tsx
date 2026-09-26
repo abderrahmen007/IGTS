@@ -6,26 +6,25 @@ import { usePathname } from "next/navigation";
 import { Icon, type IconName } from "../icons";
 import { cn } from "../ui";
 import type { AccountType } from "@/lib/session";
+import { useLive } from "../live-context";
 
 interface NavItem {
   href: string;
   label: string;
   icon: IconName;
+  /** Key of the live figure shown as a badge (company space). */
+  badge?: "toAnalyse" | "openActions";
 }
 
 const NAV: Record<AccountType, { title?: string; items: NavItem[] }[]> = {
   company: [
     {
       items: [
-        { href: "/dashboard", label: "Tableau de bord", icon: "grid" },
+        { href: "/dashboard", label: "Accueil", icon: "grid" },
+        { href: "/dashboard/evaluations", label: "À évaluer", icon: "clipboard", badge: "toAnalyse" },
         { href: "/dashboard/my-texts", label: "Mes textes", icon: "file" },
-        { href: "/dashboard/evaluations", label: "Conformité", icon: "clipboard" },
-        { href: "/dashboard/actions", label: "Plans d’action", icon: "listChecks" },
+        { href: "/dashboard/actions", label: "Plan d’action", icon: "listChecks", badge: "openActions" },
       ],
-    },
-    {
-      title: "Outils",
-      items: [{ href: "/dashboard/chat", label: "Assistant juridique", icon: "message" }],
     },
   ],
   admin: [
@@ -54,6 +53,7 @@ export function Sidebar({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const live = useLive();
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname === href || pathname.startsWith(href + "/");
 
@@ -87,7 +87,8 @@ export function Sidebar({
                       onClick={onNavigate}
                       aria-current={active ? "page" : undefined}
                       className={cn(
-                        "relative flex items-center gap-3 rounded-md px-3 py-2 text-[13.5px] transition-colors",
+                        "relative flex items-center gap-3 rounded-md px-3 transition-colors",
+                        type === "company" ? "py-2.5 text-[15px]" : "py-2 text-[13.5px]",
                         active
                           ? "bg-white/10 font-medium text-white"
                           : "text-white/70 hover:bg-white/5 hover:text-white",
@@ -95,7 +96,12 @@ export function Sidebar({
                     >
                       {active && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-white" />}
                       <Icon name={item.icon} size={17} className={active ? "text-white" : "text-white/60"} />
-                      {item.label}
+                      <span className="flex-1">{item.label}</span>
+                      {item.badge && live?.stats && live.stats[item.badge] > 0 && (
+                        <span className="tabular min-w-6 rounded-full bg-white/15 px-1.5 text-center text-xs font-semibold leading-5 text-white">
+                          {live.stats[item.badge] > 999 ? "999+" : live.stats[item.badge]}
+                        </span>
+                      )}
                     </Link>
                   </li>
                 );
@@ -105,8 +111,14 @@ export function Sidebar({
         ))}
       </nav>
 
-      <div className="border-t border-white/10 px-5 py-4 text-[11px] leading-relaxed text-white/40">
-        International Gold Training &amp; Services
+      <div className="border-t border-white/10 px-5 py-4 text-xs leading-relaxed text-white/50">
+        {type === "company" ? (
+          <>
+            Besoin d’aide ? Utilisez l’assistant en bas à droite ou contactez votre conseiller IGTS.
+          </>
+        ) : (
+          <>International Gold Training &amp; Services</>
+        )}
       </div>
     </div>
   );

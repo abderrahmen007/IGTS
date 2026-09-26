@@ -25,6 +25,7 @@ import { AdminCompaniesService } from './companies.service';
 import { AdminTextsService } from './texts.service';
 import { ReferenceService } from './reference.service';
 import { AdminUsersService } from './users.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   AssignTextsDto,
   CompanyIdsDto,
@@ -52,6 +53,7 @@ export class AdminCrudController {
     private texts: AdminTextsService,
     private reference: ReferenceService,
     private users: AdminUsersService,
+    private notifications: NotificationsService,
   ) {}
 
   // ─── Companies ─────────────────────────────────────────────────────
@@ -208,6 +210,16 @@ export class AdminCrudController {
   @Delete('types/:id')
   deleteType(@Param('id', ParseIntPipe) id: number) {
     return this.reference.deleteType(id);
+  }
+
+  // ─── Notifications ─────────────────────────────────────────────────
+
+  /** Runs the daily action-deadline reminders now (useful to test e-mails). */
+  @Post('notifications/run-reminders')
+  @HttpCode(200)
+  async runReminders() {
+    await this.notifications.remindActionDeadlines();
+    return { ok: true };
   }
 
   // ─── Admin users ───────────────────────────────────────────────────

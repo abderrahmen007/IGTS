@@ -25,8 +25,8 @@ function ActionsView() {
   return (
     <>
       <PageHeader
-        title="Plans d’action"
-        description="Actions correctives engagées suite aux non-conformités. Ouvrez le texte concerné pour mettre à jour une action."
+        title="Plan d’action"
+        description="Les actions prévues pour vous mettre en règle. Cliquez sur le texte concerné pour mettre à jour une action."
       />
 
       <Card>

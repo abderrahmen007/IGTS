@@ -1,6 +1,7 @@
 import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { IsString, MaxLength, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsInt, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { CompanyOnlyGuard, CurrentUser } from '../common/auth-user';
 import type { AuthUser } from '../common/auth-user';
 import { ChatbotService } from './chatbot.service';
@@ -10,6 +11,10 @@ class AskDto {
   @MinLength(3)
   @MaxLength(1000)
   question!: string;
+
+  /** When asked from a text page: that text is always used as context. */
+  @IsOptional() @Type(() => Number) @IsInt()
+  texteSocieteId?: number;
 }
 
 @UseGuards(AuthGuard('jwt'), CompanyOnlyGuard)
@@ -20,6 +25,6 @@ export class ChatbotController {
   @Post('ask')
   @HttpCode(200)
   ask(@CurrentUser() user: AuthUser, @Body() dto: AskDto) {
-    return this.chatbotService.ask(user, dto.question.trim());
+    return this.chatbotService.ask(user, dto.question.trim(), dto.texteSocieteId);
   }
 }

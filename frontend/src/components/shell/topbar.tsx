@@ -2,33 +2,18 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
 import { Icon } from "../icons";
 import { cn } from "../ui";
 import { Popover } from "./popover";
-import { api } from "@/lib/api";
 import { clearSession, type SessionUser } from "@/lib/session";
 import { initials, relativeTime } from "@/lib/format";
-import type { NotificationsResponse } from "@/lib/types";
+import { useLive } from "../live-context";
 
 function Notifications() {
-  const [data, setData] = useState<NotificationsResponse | null>(null);
-
-  const load = useCallback(() => {
-    api<NotificationsResponse>("/company/notifications")
-      .then(setData)
-      .catch(() => undefined);
-  }, []);
-
-  useEffect(() => {
-    load();
-    const t = window.setInterval(load, 120_000);
-    return () => window.clearInterval(t);
-  }, [load]);
-
+  const live = useLive();
+  const data = live?.notifications ?? null;
   const markAll = async () => {
-    await api("/company/notifications/read", { method: "POST" }).catch(() => undefined);
-    load();
+    await live?.markAllRead();
   };
 
   const unread = data?.unread ?? 0;

@@ -10,21 +10,21 @@ export interface TextStatus {
 
 /** Single status shown for a text, combining applicability and compliance. */
 export function textStatus(applicabilite: Ref | null, etat: Ref | null): TextStatus {
-  if (applicabilite?.id === 2) return { key: "non-applicable", label: "Non applicable", tone: "neutral" };
+  if (applicabilite?.id === 2) return { key: "non-applicable", label: "Ne nous concerne pas", tone: "neutral" };
   if (applicabilite?.id === 1) {
-    if (etat?.id === 1) return { key: "conforme", label: "Conforme", tone: "ok" };
-    if (etat?.id === 2) return { key: "non-conforme", label: "Non conforme", tone: "bad" };
-    if (etat?.id === 3) return { key: "indicatif", label: "À titre indicatif", tone: "info" };
+    if (etat?.id === 1) return { key: "conforme", label: "En règle", tone: "ok" };
+    if (etat?.id === 2) return { key: "non-conforme", label: "À mettre en règle", tone: "bad" };
+    if (etat?.id === 3) return { key: "indicatif", label: "Pour information", tone: "info" };
   }
-  return { key: "a-analyser", label: "À analyser", tone: "warn" };
+  return { key: "a-analyser", label: "À évaluer", tone: "warn" };
 }
 
 export const STATUS_OPTIONS: { value: TextStatus["key"]; label: string }[] = [
-  { value: "a-analyser", label: "À analyser" },
-  { value: "conforme", label: "Conforme" },
-  { value: "non-conforme", label: "Non conforme" },
-  { value: "indicatif", label: "À titre indicatif" },
-  { value: "non-applicable", label: "Non applicable" },
+  { value: "a-analyser", label: "À évaluer" },
+  { value: "conforme", label: "En règle" },
+  { value: "non-conforme", label: "À mettre en règle" },
+  { value: "indicatif", label: "Pour information" },
+  { value: "non-applicable", label: "Ne nous concerne pas" },
 ];
 
 export function actionTone(statusId: number | null | undefined): Tone {

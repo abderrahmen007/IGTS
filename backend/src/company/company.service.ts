@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { FilesService } from '../files/files.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AuthUser } from '../common/auth-user';
 import { clampPage, htmlToText, parseFrenchDate, toFrenchDate } from '../common/text-utils';
 import {
@@ -83,6 +84,7 @@ export class CompanyService {
   constructor(
     private prisma: PrismaService,
     private files: FilesService,
+    private notifier: NotificationsService,
   ) {}
 
   private scope(user: AuthUser): Prisma.TexteSocieteWhereInput {
@@ -336,6 +338,7 @@ export class CompanyService {
         },
       }),
     ]);
+    this.notifier.refresh(user.ownerId!);
     return this.textDetail(user, id);
   }
 
@@ -511,6 +514,7 @@ export class CompanyService {
       where: { companyId: user.ownerId!, OR: [{ isRead: false }, { isRead: null }] },
       data: { isRead: true, etat: 'lu' },
     });
+    this.notifier.refresh(user.ownerId!);
     return { updated: count };
   }
 

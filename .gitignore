@@ -36,3 +36,4 @@ backend/.devin/
 
 # Uploaded files
 backend/uploads/
+backend/outbox/
