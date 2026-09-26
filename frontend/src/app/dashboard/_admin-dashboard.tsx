@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Badge, Card, CardHeader, ErrorState, PageHeader, Skeleton, cn, td, th } from "@/components/ui";
+import { useState } from "react";
+import { Badge, Button, Card, CardHeader, ErrorState, PageHeader, Skeleton, cn, td, th } from "@/components/ui";
+import { useToast } from "@/components/overlay";
+import { api, ApiError } from "@/lib/api";
 import { Stat } from "@/components/stat";
 import { useApi } from "@/lib/use-api";
 import { formatDate, formatNumber, formatPercent } from "@/lib/format";
@@ -10,10 +13,45 @@ import type { AdminOverview } from "@/lib/types";
 export function AdminDashboard() {
   const { data, error, loading, reload } = useApi<AdminOverview>("/admin/overview");
   const s = data?.stats;
+  const toast = useToast();
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const run = async (key: string, path: string, ok: (r: { to?: string }) => string) => {
+    setBusy(key);
+    try {
+      const r = await api<{ to?: string }>(path, { method: "POST" });
+      toast(ok(r));
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : "Opération impossible.", "error");
+    } finally {
+      setBusy(null);
+    }
+  };
 
   return (
     <>
-      <PageHeader title="Tableau de bord" description="Activité de la plateforme de veille IGTS" />
+      <PageHeader
+        title="Tableau de bord"
+        description="Activité de la plateforme de veille IGTS"
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              loading={busy === "mail"}
+              onClick={() => run("mail", "/admin/notifications/test-email", (r) => `E-mail de test envoyé à ${r.to}.`)}
+            >
+              Envoyer un e-mail de test
+            </Button>
+            <Button
+              variant="secondary"
+              loading={busy === "rem"}
+              onClick={() => run("rem", "/admin/notifications/run-reminders", () => "Rappels d’échéance envoyés.")}
+            >
+              Lancer les rappels
+            </Button>
+          </>
+        }
+      />
 
       {error && (
         <div className="mb-6">

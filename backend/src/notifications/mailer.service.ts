@@ -26,12 +26,16 @@ export class MailerService {
   private readonly from: string;
   private readonly outbox: string;
   private readonly enabled: boolean;
+  private readonly redirectTo: string | null;
   private transport: Transport | null = null;
 
   constructor(config: ConfigService) {
     this.from = config.get<string>('MAIL_FROM') ?? 'IGTS Veille <veille@inter-gts.com>';
     this.outbox = resolve(config.get<string>('MAIL_OUTBOX_DIR') ?? 'outbox');
     this.enabled = config.get<string>('EMAIL_NOTIFICATIONS') !== 'false';
+    // Safety net for tests on real client data: every e-mail goes to this address
+    this.redirectTo = config.get<string>('MAIL_REDIRECT_TO')?.trim() || null;
+    if (this.redirectTo) this.logger.warn(`Tous les e-mails sont redirigés vers ${this.redirectTo}`);
 
     const host = config.get<string>('SMTP_HOST');
     if (host) {
@@ -65,6 +69,10 @@ export class MailerService {
   async send(mail: Mail): Promise<void> {
     const to = [...new Set(mail.to.map((t) => t.trim().toLowerCase()).filter((t) => /.+@.+\..+/.test(t)))];
     if (!this.enabled || !to.length) return;
+    if (this.redirectTo) {
+      mail = { ...mail, subject: `[→ ${to.join(', ')}] ${mail.subject}` };
+      to.splice(0, to.length, this.redirectTo);
+    }
     try {
       if (this.transport) {
         // One message per recipient so clients don't see each other's addresses

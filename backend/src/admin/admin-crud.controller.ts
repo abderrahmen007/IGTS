@@ -26,6 +26,8 @@ import { AdminTextsService } from './texts.service';
 import { ReferenceService } from './reference.service';
 import { AdminUsersService } from './users.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MailerService } from '../notifications/mailer.service';
+import { newTextsEmail } from '../notifications/email-templates';
 import {
   AssignTextsDto,
   CompanyIdsDto,
@@ -54,6 +56,7 @@ export class AdminCrudController {
     private reference: ReferenceService,
     private users: AdminUsersService,
     private notifications: NotificationsService,
+    private mailer: MailerService,
   ) {}
 
   // ─── Companies ─────────────────────────────────────────────────────
@@ -220,6 +223,19 @@ export class AdminCrudController {
   async runReminders() {
     await this.notifications.remindActionDeadlines();
     return { ok: true };
+  }
+
+  /** Sends a sample e-mail to the logged-in admin to check the SMTP settings. */
+  @Post('notifications/test-email')
+  @HttpCode(200)
+  async testEmail(@CurrentUser() me: AuthUser) {
+    const mail = newTextsEmail({
+      name: me.nom,
+      titles: ['Exemple — Décret n° 2000-1985 du 12 septembre 2000 (e-mail de test)'],
+      appUrl: process.env.APP_URL ?? 'http://localhost:3000',
+    });
+    await this.mailer.send({ to: [me.email], ...mail, subject: `[Test] ${mail.subject}` });
+    return { ok: true, to: me.email };
   }
 
   // ─── Admin users ───────────────────────────────────────────────────

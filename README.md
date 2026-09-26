@@ -66,7 +66,8 @@ Règles reprises de Symfony :
   - rappels du plan d'action chaque matin à 7 h 45 (heure de Tunis) : échéance dans 7 jours, demain, ou en retard.
 - **En développement**, laissez `SMTP_HOST` vide : les e-mails ne partent pas, ils sont enregistrés en `.html` dans `backend/outbox/` (ouvrez-les dans un navigateur).
 - **En production**, renseignez `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` et `APP_URL`, puis `npm install` (paquet `nodemailer`).
-- Pour tester les rappels sans attendre le lendemain : `POST /api/admin/notifications/run-reminders` (compte admin).
+- **Tests sur données réelles** : renseignez `MAIL_REDIRECT_TO` : tous les e-mails partent vers cette seule adresse (le destinataire prévu apparaît dans l'objet).
+- Depuis le tableau de bord admin : **Envoyer un e-mail de test** (vérifie la configuration SMTP) et **Lancer les rappels** (sans attendre 7 h 45).
 
 ## Points d'attention
 
