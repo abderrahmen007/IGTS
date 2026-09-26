@@ -1,6 +1,16 @@
 import { clearSession, getSession } from "./session";
 
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api").replace(/\/$/, "");
+/**
+ * API base URL. Defaults to port 3001 on the same host the page was opened
+ * from, so localhost, 127.0.0.1 and the LAN address all work in development.
+ */
+function resolveApiUrl() {
+  const fromEnv = process.env.NEXT_PUBLIC_API_URL;
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+  if (typeof window !== "undefined") return `${window.location.protocol}//${window.location.hostname}:3001/api`;
+  return "http://localhost:3001/api";
+}
+export const API_URL = resolveApiUrl();
 
 export class ApiError extends Error {
   constructor(
