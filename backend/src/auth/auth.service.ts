@@ -1,157 +1,114 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
+import { AuthUser } from '../common/auth-user';
+
+const INVALID = 'Adresse e-mail ou mot de passe incorrect';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
   ) {}
 
   /**
-   * Validates a company user against the existing database.
-   * The old Symfony app used argon2id hashing, which the `argon2` npm package supports natively.
+   * Verifies a password hashed by the legacy Symfony app.
+   * Symfony's "auto" hasher produced argon2id hashes; one legacy account still
+   * has a bcrypt ($2y$) hash, which is refused cleanly instead of crashing.
    */
-  async validateCompany(loginDto: LoginDto) {
-    const company = await this.prisma.company.findUnique({
-      where: { email: loginDto.email },
-    });
-
-    if (!company) {
-      throw new UnauthorizedException('Email ou mot de passe incorrect');
+  private async verifyPassword(hash: string, plain: string): Promise<boolean> {
+    if (hash.startsWith('$argon2')) {
+      try {
+        return await argon2.verify(hash, plain);
+      } catch (e) {
+        this.logger.warn(`Malformed argon2 hash: ${(e as Error).message}`);
+        return false;
+      }
     }
+    if (/^\$2[aby]\$/.test(hash)) {
+      this.logger.warn('Login refused: account uses a legacy bcrypt hash — password must be reset');
+    }
+    return false;
+  }
 
+  async loginCompany(dto: LoginDto) {
+    const company = await this.prisma.company.findUnique({ where: { email: dto.email.trim() } });
+    if (!company || !(await this.verifyPassword(company.password, dto.password))) {
+      throw new UnauthorizedException(INVALID);
+    }
     if (!company.enabled || company.deleted) {
-      throw new UnauthorizedException('Ce compte est désactivé');
+      throw new UnauthorizedException('Ce compte est désactivé. Contactez IGTS.');
     }
 
-    // Verify the argon2id password from the old Symfony database
-    const isPasswordValid = await argon2.verify(
-      company.password,
-      loginDto.password,
-    );
-
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Email ou mot de passe incorrect');
-    }
-
-    return this.generateTokens(company);
-  }
-
-  /**
-   * Validates an admin user (from the `user` table).
-   */
-  async validateAdmin(loginDto: LoginDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: loginDto.email },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException('Email ou mot de passe incorrect');
-    }
-
-    if (!user.enabled) {
-      throw new UnauthorizedException('Ce compte est désactivé');
-    }
-
-    const isPasswordValid = await argon2.verify(
-      user.password,
-      loginDto.password,
-    );
-
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Email ou mot de passe incorrect');
-    }
-
-    return this.generateAdminTokens(user);
-  }
-
-  private generateTokens(company: any) {
-    const roles = JSON.parse(company.roles);
-    const payload = {
-      sub: company.id,
+    const ownerId = company.multicompte > 0 ? company.multicompte : company.id;
+    const user: AuthUser = {
+      id: company.id,
+      type: 'company',
       email: company.email,
       nom: company.nom,
-      raisonsociale: company.raisonsociale,
-      roles: roles,
-      type: 'company',
+      ownerId,
     };
 
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: this.sign(user),
       user: {
-        id: company.id,
-        email: company.email,
-        nom: company.nom,
+        ...user,
         raisonsociale: company.raisonsociale,
         fonction: company.fonction,
-        image: company.tmpphoto,
-        roles: roles,
-        multicompte: company.multicompte,
+        isSubAccount: company.multicompte > 0,
       },
     };
   }
 
-  private generateAdminTokens(user: any) {
-    const roles = JSON.parse(user.roles);
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      nom: user.nom,
-      roles: roles,
-      type: 'admin',
-    };
-
-    return {
-      access_token: this.jwtService.sign(payload),
-      user: {
-        id: user.id,
-        email: user.email,
-        nom: user.nom,
-        prenom: user.prenom,
-        image: user.image,
-        roles: roles,
-      },
-    };
-  }
-
-  /**
-   * Returns the profile of the currently authenticated user.
-   */
-  async getProfile(userId: number, userType: string) {
-    if (userType === 'admin') {
-      return this.prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          email: true,
-          nom: true,
-          prenom: true,
-          image: true,
-          roles: true,
-        },
-      });
+  async loginAdmin(dto: LoginDto) {
+    const admin = await this.prisma.user.findUnique({ where: { email: dto.email.trim() } });
+    if (!admin || !(await this.verifyPassword(admin.password, dto.password))) {
+      throw new UnauthorizedException(INVALID);
+    }
+    if (!admin.valid || admin.deleted) {
+      throw new UnauthorizedException('Ce compte est désactivé.');
     }
 
-    return this.prisma.company.findUnique({
-      where: { id: userId },
+    const user: AuthUser = {
+      id: admin.id,
+      type: 'admin',
+      email: admin.email,
+      nom: admin.nomComplet || admin.username,
+      ownerId: null,
+    };
+    return { access_token: this.sign(user), user };
+  }
+
+  private sign(user: AuthUser) {
+    return this.jwtService.sign({
+      sub: user.id,
+      type: user.type,
+      email: user.email,
+      nom: user.nom,
+      ownerId: user.ownerId,
+    });
+  }
+
+  async getProfile(user: AuthUser) {
+    if (user.type === 'admin') {
+      const admin = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        select: { id: true, email: true, nomComplet: true, username: true, roles: true },
+      });
+      return admin && { ...admin, type: 'admin' };
+    }
+    const company = await this.prisma.company.findUnique({
+      where: { id: user.id },
       select: {
-        id: true,
-        email: true,
-        nom: true,
-        raisonsociale: true,
-        fonction: true,
-        image: true,
-        tmpphoto: true,
-        roles: true,
-        multicompte: true,
-        tel: true,
-        adresse: true,
-        ville: true,
+        id: true, email: true, nom: true, raisonsociale: true, fonction: true,
+        tel: true, adresse: true, ville: true, multicompte: true,
       },
     });
+    return company && { ...company, type: 'company', ownerId: user.ownerId };
   }
 }

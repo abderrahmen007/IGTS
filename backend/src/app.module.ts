@@ -3,7 +3,8 @@ import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
-import { DashboardModule } from './dashboard/dashboard.module';
+import { CompanyModule } from './company/company.module';
+import { AdminModule } from './admin/admin.module';
 import { ChatbotModule } from './chatbot/chatbot.module';
 import { ScraperModule } from './scraper/scraper.module';
 
@@ -13,7 +14,8 @@ import { ScraperModule } from './scraper/scraper.module';
     ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
-    DashboardModule,
+    CompanyModule,
+    AdminModule,
     ChatbotModule,
     ScraperModule,
   ],

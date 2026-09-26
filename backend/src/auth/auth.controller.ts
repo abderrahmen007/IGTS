@@ -1,45 +1,32 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Post,
-  Request,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { CurrentUser } from '../common/auth-user';
+import type { AuthUser } from '../common/auth-user';
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  /**
-   * POST /auth/company/login
-   * Login endpoint for company users (the main users of the platform).
-   */
+  /** POST /api/auth/company/login — client companies and their sub-accounts */
   @Post('company/login')
-  async companyLogin(@Body() loginDto: LoginDto) {
-    return this.authService.validateCompany(loginDto);
+  @HttpCode(200)
+  companyLogin(@Body() dto: LoginDto) {
+    return this.authService.loginCompany(dto);
   }
 
-  /**
-   * POST /auth/admin/login
-   * Login endpoint for IGTS admin users.
-   */
+  /** POST /api/auth/admin/login — IGTS back-office */
   @Post('admin/login')
-  async adminLogin(@Body() loginDto: LoginDto) {
-    return this.authService.validateAdmin(loginDto);
+  @HttpCode(200)
+  adminLogin(@Body() dto: LoginDto) {
+    return this.authService.loginAdmin(dto);
   }
 
-  /**
-   * GET /auth/profile
-   * Returns the profile of the currently authenticated user.
-   * Requires a valid JWT Bearer token.
-   */
+  /** GET /api/auth/profile */
   @UseGuards(AuthGuard('jwt'))
   @Get('profile')
-  async getProfile(@Request() req) {
-    return this.authService.getProfile(req.user.id, req.user.type);
+  profile(@CurrentUser() user: AuthUser) {
+    return this.authService.getProfile(user);
   }
 }

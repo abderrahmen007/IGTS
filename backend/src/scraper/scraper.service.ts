@@ -1,99 +1,90 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
-import axios from 'axios';
-import * as cheerio from 'cheerio';
 
+export interface ScrapedText {
+  titre: string;
+  num: string;
+  journal: string;
+  date: string;
+  content: string;
+}
+
+/**
+ * Nightly collection of new legal texts.
+ *
+ * Status: the source connector (iort.gov.tn) is NOT implemented yet. The job is
+ * disabled unless SCRAPER_ENABLED=true, and it never publishes on its own:
+ * texts are saved as drafts (enabled=false) for an IGTS reviewer to validate.
+ */
 @Injectable()
 export class ScraperService {
   private readonly logger = new Logger(ScraperService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private config: ConfigService,
+  ) {}
 
-  /**
-   * Run the scraper every day at midnight.
-   * Target: iort.gov.tn or other legal sources
-   */
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
-  async scrapeLegalTexts() {
-    this.logger.log('Lancement du scraper iort.gov.tn...');
-
-    try {
-      // 1. Fetch the HTML from the target website
-      // NOTE: iort.gov.tn may require a more complex puppeteer setup if it uses JS extensively,
-      // but for demonstration purposes, we are simulating a standard fetch.
-      // const response = await axios.get('http://www.iort.gov.tn/WD120AWP/WD120Awp.exe/CONNECT/SITEIORT');
-      
-      this.logger.log('Simulation de récupération des textes...');
-
-      // Mocked new text that the scraper found
-      const scrapedTexts = [
-        {
-          title: "Arrêté du ministre des finances du 15 septembre 2026",
-          description: "Fixant les modalités d'application de la nouvelle taxe écologique sur les entreprises.",
-          date: new Date(),
-          source: "JORT N° 124"
-        }
-      ];
-
-      // 2. Pass data to local AI (Ollama) for classification/summarization
-      for (const text of scrapedTexts) {
-        const aiAnalysis = await this.analyzeTextWithAI(text.title, text.description);
-
-        // 3. Save to database
-        await this.prisma.texte.create({
-          data: {
-            name: text.title,
-            ntext: aiAnalysis.summary, // We store the AI generated summary
-            datetext: text.date,
-            njournal: text.source,
-            created: new Date(),
-            lang: 'fr',
-            published: true,
-            // Assuming sector ID 1 is dynamically extracted by AI in a real scenario
-            secteurId: 1
-          }
-        });
-        
-        this.logger.log(`Nouveau texte enregistré: ${text.title}`);
-      }
-
-      this.logger.log('Scraping terminé avec succès.');
-
-    } catch (error) {
-      this.logger.error('Erreur lors du scraping', error);
-    }
+  async nightlyRun() {
+    if (this.config.get<string>('SCRAPER_ENABLED') !== 'true') return;
+    const texts = await this.fetchNewTexts();
+    for (const t of texts) await this.saveDraft(t);
+    this.logger.log(`Scraper: ${texts.length} nouveau(x) texte(s) enregistré(s) en brouillon`);
   }
 
-  /**
-   * Internal function to send scraped raw data to Ollama for structuring
-   */
-  private async analyzeTextWithAI(title: string, content: string) {
-    const prompt = `Tu es un assistant juridique d'extraction de données.
-Lis le texte de loi tunisien suivant et retourne un résumé concis et clair en 3 phrases maximum.
+  /** TODO: implement the iort.gov.tn connector (session-based WebDev site, PDFs, some scanned). */
+  private async fetchNewTexts(): Promise<ScrapedText[]> {
+    this.logger.warn('Scraper enabled but no source connector is implemented yet');
+    return [];
+  }
 
-Titre: ${title}
-Texte original: ${content}
+  private async saveDraft(t: ScrapedText) {
+    const exists = await this.prisma.texte.findFirst({ where: { num: t.num, titre: t.titre } });
+    if (exists) return;
+    const summary = await this.summarize(t.titre, t.content);
+    await this.prisma.texte.create({
+      data: {
+        titre: t.titre,
+        num: t.num,
+        journal: t.journal,
+        date: t.date,
+        description: summary,
+        createdAt: new Date(),
+        deleted: false,
+        enabled: false, // draft — must be reviewed before clients see it
+        active: false,
+      },
+    });
+  }
 
-Résumé court:`;
+  private async summarize(titre: string, content: string): Promise<string> {
+    const url = (this.config.get<string>('OLLAMA_URL') ?? 'http://localhost:11434').replace(/\/$/, '');
+    const prompt = `Résume ce texte juridique tunisien en 3 phrases maximum, en français, sans rien inventer.
 
+Titre : ${titre}
+Texte : ${content}
+
+Résumé :`;
     try {
-      const response = await fetch('http://localhost:11434/api/generate', {
+      const res = await fetch(`${url}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama3', 
-          prompt: prompt,
+          model: this.config.get<string>('OLLAMA_MODEL') ?? 'llama3',
+          prompt,
           stream: false,
+          options: { temperature: 0.1 },
         }),
+        signal: AbortSignal.timeout(120_000),
       });
-
-      if (!response.ok) throw new Error();
-      const data = await response.json();
-      return { summary: data.response };
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { response?: string };
+      return data.response?.trim() || content;
     } catch {
-      // Fallback if AI is offline
-      return { summary: content };
+      return content;
     }
   }
 }

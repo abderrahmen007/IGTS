@@ -1,68 +1,75 @@
-// This is your Prisma schema file,
-// mapped to the existing IGTS veille_db (admin_veille_igts) MySQL database.
+// Prisma schema for the existing IGTS Veille MySQL database (admin_veille_igts).
+//
+// Every model below was checked column-by-column against the CREATE TABLE
+// statements in veille_db.sql. The legacy database has NO foreign keys, so we
+// use relationMode = "prisma": relations exist in the client only.
+//
+// ⚠️  Never run `prisma migrate` / `prisma db push` against the live database
+//     while the Symfony platform is still using it. Use `prisma db pull` only.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
 }
 
-// ─── CORE AUTH & USERS ───────────────────────────────────────────────
+// ─── ACCOUNTS ────────────────────────────────────────────────────────
 
+/// Client company accounts. A sub-account ("multicompte") has
+/// `multicompte` = id of its parent company and shares its texts.
 model Company {
-  id              Int       @id @default(autoincrement())
-  multicompte     Int       @default(0)
-  paysId          Int?      @map("pays_id")
-  email           String    @unique @db.VarChar(180)
-  type            Boolean?
-  roles           String    @db.LongText
-  password        String    @db.VarChar(255)
-  nom             String    @db.VarChar(255)
-  adresse         String?   @db.VarChar(2555)
-  ville           String?   @db.VarChar(255)
-  zipcode         String?   @db.VarChar(255)
-  tel             String?   @db.VarChar(255)
-  telfixe         String?   @db.VarChar(255)
-  createdAt       DateTime  @map("created_at")
-  deleted         Boolean
-  activated       Boolean
-  enabled         Boolean
-  updatedAt       DateTime? @map("updated_at")
-  secteurId       Int?      @map("secteur_id")
-  themeId         Int?      @map("theme_id")
-  tmpphoto        String?   @db.VarChar(255)
-  fonction        String?   @db.VarChar(255)
-  image           String?   @db.VarChar(255)
-  raisonsociale   String?   @db.VarChar(255)
-  droit           Int?      @db.TinyInt
-  droitacceeId    Int?      @map("droitaccee_id")
+  id            Int       @id @default(autoincrement())
+  multicompte   Int
+  paysId        Int?      @map("pays_id")
+  email         String    @unique @db.VarChar(180)
+  type          Boolean?
+  roles         String    @db.LongText
+  password      String    @db.VarChar(255)
+  nom           String    @db.VarChar(255)
+  adresse       String?   @db.VarChar(2555)
+  ville         String?   @db.VarChar(255)
+  zipcode       String?   @db.VarChar(255)
+  tel           String?   @db.VarChar(255)
+  telfixe       String?   @db.VarChar(255)
+  createdAt     DateTime  @map("created_at") @db.DateTime(0)
+  deleted       Boolean
+  activated     Boolean
+  enabled       Boolean
+  updatedAt     DateTime? @map("updated_at") @db.DateTime(0)
+  secteurId     Int?      @map("secteur_id")
+  themeId       Int?      @map("theme_id")
+  tmpphoto      String?   @db.VarChar(255)
+  fonction      String?   @db.VarChar(255)
+  image         String?   @db.VarChar(255)
+  raisonsociale String?   @db.VarChar(255)
+  droit         Int?      @db.TinyInt
+  droitacceeId  Int?      @map("droitaccee_id")
 
-  // Relations
-  texteSocietes     TexteSociete[]
-  notifications     Notification[]
-  emailCompanies    EmailCompany[]
-  historiqueActions HistoriqueAction[]
-  historiqueEtats   HistoriqueEtat[]
+  texteSocietes        TexteSociete[]
+  notifications        Notification[]
+  historiqueActions    HistoriqueAction[]
+  historiqueEtats      HistoriqueEtat[]
   companySecteurThemes CompanySecteurTheme[]
-  companyThemes     CompanyTheme[]
+  companyThemes        CompanyTheme[]
 
   @@map("company")
 }
 
+/// IGTS back-office users (administrators / agencies).
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique @db.VarChar(180)
-  roles     String   @db.LongText
-  password  String   @db.VarChar(255)
-  nom       String   @db.VarChar(255)
-  prenom    String?  @db.VarChar(255)
-  tel       String?  @db.VarChar(255)
-  enabled   Boolean
-  createdAt DateTime @map("created_at")
-  image     String?  @db.VarChar(255)
+  id         Int     @id @default(autoincrement())
+  username   String  @db.VarChar(180)
+  roles      String  @db.LongText
+  nomComplet String  @map("nom_complet") @db.VarChar(50)
+  email      String  @unique @db.VarChar(100)
+  valid      Boolean
+  deleted    Boolean
+  password   String  @db.VarChar(255)
+  admin      Boolean
 
   @@map("user")
 }
@@ -74,14 +81,7 @@ model DroitAccee {
   @@map("droitaccee")
 }
 
-model Role {
-  id   Int    @id @default(autoincrement())
-  name String @db.VarChar(255)
-
-  @@map("role")
-}
-
-// ─── REGULATORY TEXTS (Core Business) ────────────────────────────────
+// ─── REGULATORY TEXTS ────────────────────────────────────────────────
 
 model Texte {
   id          Int       @id @default(autoincrement())
@@ -90,67 +90,78 @@ model Texte {
   systemeId   Int?      @map("systeme_id")
   themeId     Int?      @map("theme_id")
   typeId      Int?      @map("type_id")
+  /// Plain-text summary of the legal text
   description String    @db.LongText
+  /// e.g. "Décret n° 2000-1985 du 12 Septembre 2000"
   titre       String    @db.VarChar(2555)
+  /// e.g. "JORT N°76"
   journal     String    @db.VarChar(2555)
+  /// Publication date as free text, e.g. "22 Septembre 2000"
   date        String    @db.VarChar(2555)
   num         String    @db.VarChar(2555)
-  createdAt   DateTime? @map("created_at")
-  updatedAt   DateTime? @map("updated_at")
+  createdAt   DateTime? @map("created_at") @db.DateTime(0)
+  updatedAt   DateTime? @map("updated_at") @db.DateTime(0)
   deleted     Boolean
   enabled     Boolean
   active      Boolean
+  /// PDF file name in /public/uploads/texte/photos of the legacy app
   tmpphoto    String?   @db.VarChar(255)
   pos         Int?
   reference   Int?
 
-  // Relations
   secteur       Secteur?       @relation(fields: [secteurId], references: [id])
   theme         Theme?         @relation(fields: [themeId], references: [id])
   type          Type?          @relation(fields: [typeId], references: [id])
   texteSocietes TexteSociete[]
-  historiqueActions HistoriqueAction[]
 
+  @@index([secteurId])
+  @@index([themeId])
+  @@index([typeId])
   @@map("texte")
 }
 
+/// Assignment of a text to a company + its compliance evaluation and action.
 model TexteSociete {
-  id                    Int       @id @default(autoincrement())
-  companyId             Int?      @map("company_id")
-  texteId               Int?      @map("texte_id")
-  createdAt             DateTime? @map("created_at")
-  gestionetatId         Int?      @map("gestionetat_id")
-  gestionactionId       Int?      @map("gestionaction_id")
-  themeId               Int?      @map("theme_id")
-  secteurId             Int?      @map("secteur_id")
-  libelleAction         String?   @db.VarChar(255)
-  responsableAction     String?   @db.VarChar(255)
-  telephoneResponsable  String?   @db.VarChar(255)
-  courrielResponsable   String?   @db.VarChar(255)
-  echeant               String?   @db.VarChar(255)
-  activated             Boolean?
-  tmpphoto              String?   @db.VarChar(255)
-  dateouverture         String?   @db.VarChar(255)
-  cloture               String?   @db.VarChar(255)
-  themed                Boolean?
-  datequifairetat       DateTime? @db.Date
-  datequifairaction     DateTime? @db.Date
-  quifairaction         String?   @db.VarChar(255)
-  quifairetat           String?   @db.VarChar(255)
-  type                  Int?
-  applicabiliteId       Int       @map("applicabilite_id")
-  numaction             String?   @db.VarChar(255)
-  comment               String?   @db.VarChar(2555)
-  deleted               Boolean?
-  plusactionId           Int?      @map("plusaction_id")
+  id                   Int       @id @default(autoincrement())
+  companyId            Int?      @map("company_id")
+  texteId              Int?      @map("texte_id")
+  createdAt            DateTime? @map("created_at") @db.DateTime(0)
+  gestionetatId        Int?      @map("gestionetat_id")
+  gestionactionId      Int?      @map("gestionaction_id")
+  themeId              Int?      @map("theme_id")
+  secteurId            Int?      @map("secteur_id")
+  libelleAction        String?   @db.VarChar(255)
+  responsableAction    String?   @db.VarChar(255)
+  telephoneResponsable String?   @db.VarChar(255)
+  courrielResponsable  String?   @db.VarChar(255)
+  echeant              String?   @db.VarChar(255)
+  activated            Boolean?
+  tmpphoto             String?   @db.VarChar(255)
+  dateouverture        String?   @db.VarChar(255)
+  cloture              String?   @db.VarChar(255)
+  themed               Boolean?
+  datequifairetat      DateTime? @db.Date
+  datequifairaction    DateTime? @db.Date
+  quifairaction        String?   @db.VarChar(255)
+  quifairetat          String?   @db.VarChar(255)
+  type                 Int?
+  applicabiliteId      Int       @map("applicabilite_id")
+  numaction            String?   @db.VarChar(255)
+  comment              String?   @db.VarChar(2555)
+  deleted              Boolean?
+  plusactionId         Int?      @map("plusaction_id")
 
-  // Relations
-  company      Company?      @relation(fields: [companyId], references: [id])
-  texte        Texte?        @relation(fields: [texteId], references: [id])
-  gestionEtat  GestionEtat?  @relation(fields: [gestionetatId], references: [id])
+  company       Company?       @relation(fields: [companyId], references: [id])
+  texte         Texte?         @relation(fields: [texteId], references: [id])
+  gestionEtat   GestionEtat?   @relation(fields: [gestionetatId], references: [id])
   gestionAction GestionAction? @relation(fields: [gestionactionId], references: [id])
-  applicabilite Applicabilite @relation(fields: [applicabiliteId], references: [id])
+  applicabilite Applicabilite  @relation(fields: [applicabiliteId], references: [id])
 
+  @@index([companyId])
+  @@index([texteId])
+  @@index([gestionetatId])
+  @@index([gestionactionId])
+  @@index([applicabiliteId])
   @@map("texte_societe")
 }
 
@@ -160,38 +171,39 @@ model Secteur {
   id   Int    @id @default(autoincrement())
   name String @db.VarChar(255)
 
-  textes              Texte[]
-  themes              Theme[]
+  textes               Texte[]
+  themes               Theme[]
   companySecteurThemes CompanySecteurTheme[]
-  companyThemes       CompanyTheme[]
+  companyThemes        CompanyTheme[]
 
   @@map("secteur")
 }
 
 model Theme {
-  id        Int     @id @default(autoincrement())
-  secteurId Int?    @map("secteur_id")
-  name      String  @db.VarChar(255)
-  deleted   Boolean @default(false)
+  id        Int    @id @default(autoincrement())
+  name      String @db.VarChar(255)
+  secteurId Int?   @map("secteur_id")
 
-  secteur             Secteur?             @relation(fields: [secteurId], references: [id])
-  textes              Texte[]
+  secteur              Secteur?              @relation(fields: [secteurId], references: [id])
+  textes               Texte[]
   companySecteurThemes CompanySecteurTheme[]
-  companyThemes       CompanyTheme[]
+  companyThemes        CompanyTheme[]
 
+  @@index([secteurId])
   @@map("theme")
 }
 
+/// Décret, Arrêté, Loi organique, Circulaire…
 model Type {
-  id      Int     @id @default(autoincrement())
-  name    String  @db.VarChar(255)
-  deleted Boolean @default(false)
+  id   Int    @id @default(autoincrement())
+  name String @db.VarChar(255)
 
   textes Texte[]
 
   @@map("type")
 }
 
+/// 1 Applicable · 2 Non Applicable · 3 Non analysé
 model Applicabilite {
   id   Int     @id @default(autoincrement())
   name String? @db.VarChar(255)
@@ -201,25 +213,19 @@ model Applicabilite {
   @@map("applicabilite")
 }
 
-model Systeme {
-  id   Int    @id @default(autoincrement())
-  name String @db.VarChar(255)
-
-  @@map("systeme")
-}
-
-// ─── COMPANY-SECTOR-THEME MAPPING ────────────────────────────────────
-
 model CompanySecteurTheme {
   id        Int  @id @default(autoincrement())
   themeId   Int? @map("theme_id")
   companyId Int  @map("company_id")
   secteurId Int? @map("secteur_id")
 
-  company Company? @relation(fields: [companyId], references: [id])
+  company Company  @relation(fields: [companyId], references: [id])
   theme   Theme?   @relation(fields: [themeId], references: [id])
   secteur Secteur? @relation(fields: [secteurId], references: [id])
 
+  @@index([companyId])
+  @@index([themeId])
+  @@index([secteurId])
   @@map("company_secteur_theme")
 }
 
@@ -229,15 +235,19 @@ model CompanyTheme {
   themeId   Int  @map("theme_id")
   secteurId Int? @map("secteur_id")
 
-  company Company? @relation(fields: [companyId], references: [id])
-  theme   Theme?   @relation(fields: [themeId], references: [id])
+  company Company  @relation(fields: [companyId], references: [id])
+  theme   Theme    @relation(fields: [themeId], references: [id])
   secteur Secteur? @relation(fields: [secteurId], references: [id])
 
+  @@index([companyId])
+  @@index([themeId])
+  @@index([secteurId])
   @@map("companytheme")
 }
 
-// ─── COMPLIANCE TRACKING ─────────────────────────────────────────────
+// ─── COMPLIANCE ──────────────────────────────────────────────────────
 
+/// 1 Conforme · 2 Non conforme · 3 A titre indicatif · 4 Non analysé
 model GestionEtat {
   id   Int     @id @default(autoincrement())
   name String? @db.VarChar(255)
@@ -247,6 +257,7 @@ model GestionEtat {
   @@map("gestionetat")
 }
 
+/// Action status: 1 En cours · 5 Efficace · 6 Non efficace
 model GestionAction {
   id   Int     @id @default(autoincrement())
   name String? @db.VarChar(255)
@@ -256,19 +267,103 @@ model GestionAction {
   @@map("gestion_action")
 }
 
-// ─── NOTIFICATIONS & EMAILS ──────────────────────────────────────────
+/// Additional corrective actions attached to a text assignment.
+model Plusaction {
+  id                   Int       @id @default(autoincrement())
+  companyId            Int?      @map("company_id")
+  texteId              Int?      @map("texte_id")
+  multicompte          Int?
+  datequifairaction    DateTime? @db.Date
+  quifairaction        String?   @db.VarChar(255)
+  texteSocieteId       Int?      @map("texte_societe_id")
+  gestionactionId      Int?      @map("gestionaction_id")
+  gestionetatId        Int?      @map("gestionetat_id")
+  quifairetat          String?   @db.VarChar(255)
+  datequifairetat      DateTime? @db.Date
+  createdAt            DateTime? @map("created_at") @db.DateTime(0)
+  libelleAction        String?   @db.VarChar(2555)
+  responsableAction    String?   @db.VarChar(2555)
+  telephoneResponsable String?   @db.VarChar(255)
+  courrielResponsable  String?   @db.VarChar(2555)
+  echeant              String?   @db.VarChar(2555)
+  tmpphoto             String?   @db.VarChar(2555)
+  dateouverture        String?   @db.VarChar(2555)
+  cloture              String?   @db.VarChar(2555)
+  numaction            String?   @db.VarChar(2555)
+  secteurId            Int?      @map("secteur_id")
+  themeId              Int?      @map("theme_id")
 
-model Notification {
-  id        Int       @id @default(autoincrement())
-  companyId Int?      @map("company_id")
-  titre     String?   @db.VarChar(2555)
-  content   String?   @db.VarChar(2555)
-  readed    Boolean?  @default(false)
-  createdAt DateTime? @map("created_at")
-  url       String?   @db.VarChar(2555)
+  @@map("plusaction")
+}
+
+// ─── HISTORY / AUDIT TRAIL ───────────────────────────────────────────
+
+model HistoriqueEtat {
+  id              Int       @id @default(autoincrement())
+  companyId       Int?      @map("company_id")
+  texteId         Int?      @map("texte_id")
+  multicompte     Int?
+  texteSocieteId  Int?      @map("texte_societe_id")
+  gestionetatId   Int?      @map("gestionetat_id")
+  quifairetat     String?   @db.VarChar(255)
+  datequifairetat DateTime? @db.Date
+  createdAt       DateTime? @map("created_at") @db.Date
+  applicabiliteId Int?      @map("applicabilite_id")
 
   company Company? @relation(fields: [companyId], references: [id])
 
+  @@index([companyId])
+  @@map("historiqueetat")
+}
+
+model HistoriqueAction {
+  id                   Int       @id @default(autoincrement())
+  companyId            Int?      @map("company_id")
+  texteId              Int?      @map("texte_id")
+  multicompte          Int?
+  datequifairaction    DateTime? @db.Date
+  quifairaction        String?   @db.VarChar(255)
+  texteSocieteId       Int?      @map("texte_societe_id")
+  gestionactionId      Int?      @map("gestionaction_id")
+  gestionetatId        Int?      @map("gestionetat_id")
+  quifairetat          String?   @db.VarChar(255)
+  datequifairetat      DateTime? @db.Date
+  createdAt            DateTime? @map("created_at") @db.Date
+  libelleAction        String?   @db.VarChar(2555)
+  responsableAction    String?   @db.VarChar(2555)
+  telephoneResponsable String?   @db.VarChar(255)
+  courrielResponsable  String?   @db.VarChar(2555)
+  echeant              String?   @db.VarChar(2555)
+  tmpphoto             String?   @db.VarChar(2555)
+  dateouverture        String?   @db.VarChar(2555)
+  cloture              String?   @db.VarChar(2555)
+  numaction            String?   @db.VarChar(2555)
+  plusactionId         Int?      @map("plusaction_id")
+
+  company Company? @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@map("historiqueaction")
+}
+
+// ─── NOTIFICATIONS & MAIL ────────────────────────────────────────────
+
+model Notification {
+  id             Int       @id @default(autoincrement())
+  texteId        Int?      @map("texte_id")
+  createdAt      DateTime? @map("created_at") @db.DateTime(0)
+  isRead         Boolean?  @map("is_read")
+  companyId      Int?      @map("company_id")
+  texteSocieteId Int?      @map("texte_societe_id")
+  message        String?   @db.VarChar(255)
+  secteurId      Int?      @map("secteur_id")
+  themeId        Int?      @map("theme_id")
+  companyName    String?   @map("company_name") @db.VarChar(255)
+  etat           String?   @db.VarChar(255)
+
+  company Company? @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
   @@map("notification")
 }
 
@@ -279,75 +374,15 @@ model EmailCompany {
   object    String? @db.VarChar(2555)
   content   String? @db.VarChar(2555)
 
-  company Company @relation(fields: [companyId], references: [id])
-
   @@map("emailcompany")
 }
 
 model MailTemplate {
-  id      Int     @id @default(autoincrement())
-  name    String? @db.VarChar(255)
-  object  String? @db.VarChar(255)
-  content String? @db.LongText
+  id      Int    @id @default(autoincrement())
+  subject String @db.VarChar(255)
+  content String @db.LongText
+  title   String @db.VarChar(2555)
+  name    String @db.VarChar(255)
 
   @@map("mail_template")
-}
-
-// ─── HISTORY / AUDIT TRAIL ───────────────────────────────────────────
-
-model HistoriqueAction {
-  id                    Int       @id @default(autoincrement())
-  companyId             Int?      @map("company_id")
-  texteId               Int?      @map("texte_id")
-  multicompte           Int?
-  datequifairaction     DateTime? @db.Date
-  quifairaction         String?   @db.VarChar(255)
-  texteSocieteId        Int?      @map("texte_societe_id")
-  gestionactionId       Int?      @map("gestionaction_id")
-  gestionetatId         Int?      @map("gestionetat_id")
-  quifairetat           String?   @db.VarChar(255)
-  datequifairetat       DateTime? @db.Date
-  createdAt             DateTime? @map("created_at") @db.Date
-  libelleAction         String?   @db.VarChar(2555)
-  responsableAction     String?   @db.VarChar(2555)
-  telephoneResponsable  String?   @db.VarChar(255)
-  courrielResponsable   String?   @db.VarChar(2555)
-  echeant               String?   @db.VarChar(2555)
-  tmpphoto              String?   @db.VarChar(2555)
-  dateouverture         String?   @db.VarChar(2555)
-  cloture               String?   @db.VarChar(2555)
-
-  company Company? @relation(fields: [companyId], references: [id])
-  texte   Texte?   @relation(fields: [texteId], references: [id])
-
-  @@map("historiqueaction")
-}
-
-model HistoriqueEtat {
-  id                    Int       @id @default(autoincrement())
-  companyId             Int?      @map("company_id")
-  texteId               Int?      @map("texte_id")
-  multicompte           Int?
-  datequifairetat       DateTime? @db.Date
-  quifairetat           String?   @db.VarChar(255)
-  texteSocieteId        Int?      @map("texte_societe_id")
-  gestionetatId         Int?      @map("gestionetat_id")
-  createdAt             DateTime? @map("created_at") @db.Date
-
-  company Company? @relation(fields: [companyId], references: [id])
-
-  @@map("historiqueetat")
-}
-
-// ─── MISC / LEGACY ───────────────────────────────────────────────────
-
-model ResetPasswordRequest {
-  id          Int      @id @default(autoincrement())
-  userId      Int      @map("user_id")
-  selector    String   @db.VarChar(20)
-  hashedToken String   @map("hashed_token") @db.VarChar(100)
-  requestedAt DateTime @map("requested_at")
-  expiresAt   DateTime @map("expires_at")
-
-  @@map("reset_password_request")
 }
