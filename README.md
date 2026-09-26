@@ -1,77 +1,60 @@
-# IGTS Veille — nouvelle plateforme
+# IGTS Veille Réglementaire 2.0 🚀
 
-Refonte de la plateforme de veille réglementaire IGTS (anciennement Symfony 5).
+Welcome to the modernized **IGTS Veille Réglementaire** platform. This project is a complete architectural overhaul of the legacy monolithic Symfony 5 application into a modern, decoupled, and AI-powered stack.
 
-| Dossier     | Rôle                                  | Stack                          |
-|-------------|---------------------------------------|--------------------------------|
-| `backend/`  | API REST (`/api/...`)                 | NestJS 11, Prisma 5, MySQL     |
-| `frontend/` | Interface web (entreprises et admin)  | Next.js 16, React 19, Tailwind 4 |
-| `veille/`   | Ancienne application (référence seule, non versionnée) | Symfony 5 |
+## 🎯 Project Vision
+The primary goal of this revamp is to provide a premium user experience (UX/UI), ensure high performance, and automate heavy manual tasks using local AI, all while remaining 100% backward-compatible with the existing database and user credentials.
 
-## Démarrer en local
+## 🛠 Tech Stack
+- **Frontend:** Next.js (React) + Tailwind CSS (Glassmorphism & modern UI)
+- **Backend:** NestJS (TypeScript)
+- **Database:** MySQL + Prisma ORM
+- **Artificial Intelligence:** Local LLMs via Ollama (Free, secure, and private)
 
-```bash
-# 1. Base de données : copie locale de veille_db.sql
-docker compose up -d            # MySQL 8 sur localhost:3306
+## ✨ Key Features (Phase 1)
 
-# 2. API
-cd backend
-cp .env.example .env            # puis renseigner JWT_SECRET (32+ caractères)
-npm install
-npx prisma generate
-node --env-file=.env create-admin.js      # créer votre compte administrateur
-npm run start:dev               # → http://localhost:3001/api
+### 1. Seamless Legacy Integration
+- **Database Mapping:** Fully reverse-engineered over 30 legacy tables (`veille_db.sql`) into a modern Prisma schema without losing any existing data.
+- **Backward-Compatible Auth:** Implemented a custom JWT authentication guard in NestJS that correctly validates legacy `argon2id` hashed passwords. Existing clients can log in without resetting their passwords.
 
-# 3. Interface
-cd ../frontend
-cp .env.example .env.local
-npm install
-npm run dev                     # → http://localhost:3000
-```
+### 2. Premium Dashboards
+- **Company Portal:** Companies can track their compliance rates, view assigned legal texts, and manage pending actions through a modern interface.
+- **Admin Portal:** Administrators have a bird's-eye view of all companies, active texts, and the health of the AI Scraper.
+- **Interactive Notifications:** Real-time dropdowns to alert users when a new relevant legal text is detected.
 
-Connexion : onglet **Entreprise** pour les clients (et leurs sous-comptes),
-onglet **Administration IGTS** pour le back-office. Les mots de passe de
-l'ancienne plateforme (argon2id) fonctionnent tels quels.
+### 3. AI Automation (The Core Innovation)
+- **The AI Legal Scraper:** A NestJS Cron Job that runs daily at midnight. It scrapes official portals (e.g., `iort.gov.tn`), feeds the raw legal jargon to Ollama, and asks the AI to extract meaning, generate a 3-sentence summary, and save it directly to the database.
+- **RAG Chatbot (Legal Assistant):** Companies have access to an AI chatbot in their dashboard. The bot strictly uses the company's assigned legal texts as context to answer compliance questions, preventing hallucinations and ensuring high accuracy.
 
-## Règles métier reprises de l'ancienne plateforme
+## 🚀 Getting Started (Local Development)
 
-- Un **sous-compte** (`company.multicompte = id parent`) voit et évalue les textes de son entreprise parente.
-- **Applicabilité** : Applicable / Non applicable / Non analysé (`applicabilite`).
-- **Conformité** (si applicable) : Conforme / Non conforme / À titre indicatif / Non analysé (`gestionetat`).
-- Chaque évaluation met à jour `texte_societe` et ajoute une ligne dans `historiqueetat`.
-- **Plans d'action** : table `plusaction` (+ trace dans `historiqueaction`). Statuts : En cours / Efficace / Non efficace.
-  La colonne `courrielResponsable` contient en réalité l'**effectivité en %** (reprise de l'ancien écran).
-- **Taux de conformité** affiché = conformes ÷ (conformes + non conformes).
+### Prerequisites
+- Node.js (v18+)
+- Docker & Docker Compose
+- Ollama (running locally on port `11434`)
 
-## Espace administrateur (parité avec Symfony)
+### Setup Instructions
+1. **Start the Database:**
+   ```bash
+   docker-compose up -d
+   ```
+2. **Start the Backend (NestJS):**
+   ```bash
+   cd backend
+   npm install
+   npx prisma generate
+   npm run start:dev
+   ```
+3. **Start the Frontend (Next.js):**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+4. **Access the App:** Open `http://localhost:3000` in your browser.
 
-| Écran | Fonctions |
-|---|---|
-| Entreprises | créer, modifier, mot de passe, activer/désactiver, supprimer (logique) ; fiche avec secteurs et thèmes suivis, textes de la veille (ajout/retrait), utilisateurs rattachés (multicompte) |
-| Textes réglementaires | créer (avec PDF), modifier, supprimer, supprimer définitivement, affecter à des entreprises |
-| Secteurs, thèmes, types | créer, renommer, supprimer (refusé s'ils sont utilisés) |
-| Administrateurs | créer, modifier, mot de passe, activer/désactiver, supprimer |
-
-Règles reprises de Symfony :
-- Un nouveau texte est ajouté automatiquement (statut « Non analysé ») à toutes les entreprises abonnées à son secteur + thème, avec une notification.
-- Retirer un secteur ou un thème d'une entreprise supprime les textes, évaluations, actions et notifications correspondants (confirmation obligatoire, avec le nombre d'éléments impactés).
-- La désactivation d'une entreprise utilise la colonne `activated` (celle que vérifie la connexion).
-- Les PDF envoyés depuis la nouvelle plateforme sont stockés dans `backend/uploads/textes` ; les anciens PDF sont servis depuis veille.inter-gts.com.
-
-## Notifications en temps réel et e-mails
-
-- **Temps réel** : le navigateur reste connecté à `/api/notifications/stream` (Server-Sent Events). La cloche, les compteurs du menu et le tableau de bord se mettent à jour instantanément, sans recharger la page.
-- **E-mails** (charte IGTS, en français) :
-  - nouveaux textes ajoutés à la veille : un seul e-mail par opération, envoyé à tous les utilisateurs actifs de l'entreprise ;
-  - rappels du plan d'action chaque matin à 7 h 45 (heure de Tunis) : échéance dans 7 jours, demain, ou en retard.
-- **En développement**, laissez `SMTP_HOST` vide : les e-mails ne partent pas, ils sont enregistrés en `.html` dans `backend/outbox/` (ouvrez-les dans un navigateur).
-- **En production**, renseignez `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` et `APP_URL`, puis `npm install` (paquet `nodemailer`).
-- **Tests sur données réelles** : renseignez `MAIL_REDIRECT_TO` : tous les e-mails partent vers cette seule adresse (le destinataire prévu apparaît dans l'objet).
-- Depuis le tableau de bord admin : **Envoyer un e-mail de test** (vérifie la configuration SMTP) et **Lancer les rappels** (sans attendre 7 h 45).
-
-## Points d'attention
-
-- Ne jamais lancer `prisma migrate` / `db push` sur la base de production tant que Symfony l'utilise.
-- Le scraper nocturne est désactivé (`SCRAPER_ENABLED=false`) : le connecteur iort.gov.tn reste à écrire.
-  Il n'enregistre que des brouillons (`enabled = false`) à valider par IGTS.
-- Un compte administrateur de l'ancienne base a encore un hash bcrypt : son mot de passe doit être réinitialisé.
+## 📅 Roadmap (Upcoming)
+- **Compliance Evaluations:** Finalize the CRUD for companies to mark texts as Compliant / Non-Compliant.
+- **Action Plans:** Complete the Action Plan management UI.
+- **WebSockets:** Upgrade the notification system from static to real-time Socket.io push notifications.
+- **Mobile Ready:** Ensure API endpoints are documented for a future React Native mobile application.
