@@ -58,6 +58,16 @@ Règles reprises de Symfony :
 - La désactivation d'une entreprise utilise la colonne `activated` (celle que vérifie la connexion).
 - Les PDF envoyés depuis la nouvelle plateforme sont stockés dans `backend/uploads/textes` ; les anciens PDF sont servis depuis veille.inter-gts.com.
 
+## Notifications en temps réel et e-mails
+
+- **Temps réel** : le navigateur reste connecté à `/api/notifications/stream` (Server-Sent Events). La cloche, les compteurs du menu et le tableau de bord se mettent à jour instantanément, sans recharger la page.
+- **E-mails** (charte IGTS, en français) :
+  - nouveaux textes ajoutés à la veille : un seul e-mail par opération, envoyé à tous les utilisateurs actifs de l'entreprise ;
+  - rappels du plan d'action chaque matin à 7 h 45 (heure de Tunis) : échéance dans 7 jours, demain, ou en retard.
+- **En développement**, laissez `SMTP_HOST` vide : les e-mails ne partent pas, ils sont enregistrés en `.html` dans `backend/outbox/` (ouvrez-les dans un navigateur).
+- **En production**, renseignez `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` et `APP_URL`, puis `npm install` (paquet `nodemailer`).
+- Pour tester les rappels sans attendre le lendemain : `POST /api/admin/notifications/run-reminders` (compte admin).
+
 ## Points d'attention
 
 - Ne jamais lancer `prisma migrate` / `db push` sur la base de production tant que Symfony l'utilise.
