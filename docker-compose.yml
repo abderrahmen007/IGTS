@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   db:
     image: mysql:8.0
@@ -10,4 +9,11 @@ services:
     ports:
       - "3306:3306"
     volumes:
+      # Imported only the first time (when the volume is empty)
       - ./veille_db.sql:/docker-entrypoint-initdb.d/init.sql
+      # Named volume: data (test accounts, evaluations…) survives restarts
+      # and `docker compose down`. Reset with `docker compose down -v`.
+      - db_data:/var/lib/mysql
+
+volumes:
+  db_data:
