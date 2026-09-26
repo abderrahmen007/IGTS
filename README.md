@@ -19,6 +19,7 @@ cd backend
 cp .env.example .env            # puis renseigner JWT_SECRET (32+ caractères)
 npm install
 npx prisma generate
+node --env-file=.env create-admin.js      # créer votre compte administrateur
 npm run start:dev               # → http://localhost:3001/api
 
 # 3. Interface
