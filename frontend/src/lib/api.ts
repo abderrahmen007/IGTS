@@ -7,8 +7,8 @@ import { clearSession, getSession } from "./session";
 function resolveApiUrl() {
   const fromEnv = process.env.NEXT_PUBLIC_API_URL;
   if (fromEnv) return fromEnv.replace(/\/$/, "");
-  if (typeof window !== "undefined") return `${window.location.protocol}//${window.location.hostname}:3001/api`;
-  return "http://localhost:3001/api";
+  // Using relative path so it seamlessly works with Next.js rewrites and tunneling
+  return "/api";
 }
 export const API_URL = resolveApiUrl();
 
@@ -24,7 +24,9 @@ export class ApiError extends Error {
 type Query = Record<string, string | number | undefined | null>;
 
 function buildUrl(path: string, query?: Query) {
-  const url = new URL(API_URL + path);
+  // API_URL may be relative ("/api", proxied by Next.js): resolve it against the page's origin
+  const base = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+  const url = new URL(API_URL + path, base);
   if (query) {
     for (const [k, v] of Object.entries(query)) {
       if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
