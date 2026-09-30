@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/auth-user';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const STOPWORDS = new Set(
   (
@@ -30,21 +31,24 @@ function keywords(question: string) {
  * Legal assistant restricted to the texts assigned to the caller's company.
  *
  * Retrieval: keyword scoring over titles and summaries (no vector store yet).
- * Only the most relevant texts are sent to the local LLM, and the model is told
+ * Only the most relevant texts are sent to the LLM (Gemini), and the model is told
  * to answer from them only and to say so when the answer is not there.
  */
 @Injectable()
 export class ChatbotService {
   private readonly logger = new Logger(ChatbotService.name);
-  private readonly ollamaUrl: string;
-  private readonly model: string;
+  private readonly genAI: GoogleGenerativeAI | null = null;
 
   constructor(
     private prisma: PrismaService,
     config: ConfigService,
   ) {
-    this.ollamaUrl = (config.get<string>('OLLAMA_URL') ?? 'http://localhost:11434').replace(/\/$/, '');
-    this.model = config.get<string>('OLLAMA_MODEL') ?? 'llama3';
+    const apiKey = config.get<string>('GEMINI_API_KEY');
+    if (apiKey) {
+      this.genAI = new GoogleGenerativeAI(apiKey);
+    } else {
+      this.logger.warn('GEMINI_API_KEY is not set. The chatbot will be unavailable.');
+    }
   }
 
   async ask(user: AuthUser, question: string, focusId?: number) {
@@ -76,43 +80,48 @@ export class ChatbotService {
 
     const sources = ranked.map(({ r }) => ({ id: r.id, titre: r.texte!.titre }));
 
-    if (ranked.length === 0) {
-      return {
-        answer:
-          "Je n'ai trouvé aucun texte de votre veille en lien avec cette question. " +
-          'Essayez avec d’autres mots-clés (ex. « médecine du travail », « déchets », « audit énergétique »).',
-        sources: [],
-      };
-    }
+    const context = ranked.length > 0
+      ? ranked
+          .map(({ r }, i) => `[${i + 1}] ${r.texte!.titre} (${r.texte!.date})\n${r.texte!.description}`)
+          .join('\n\n')
+      : "Aucun texte juridique spécifique n'a été trouvé pour cette question.";
 
-    const context = ranked
-      .map(({ r }, i) => `[${i + 1}] ${r.texte!.titre} (${r.texte!.date})\n${r.texte!.description}`)
-      .join('\n\n');
+    const prompt = `Tu es l'assistant IA de l'application "IGTS Veille", une plateforme de veille réglementaire pour les entreprises tunisiennes.
+Ton rôle est de faciliter la vie de l'utilisateur pour tout ce qui concerne l'application et la veille réglementaire.
 
-    const prompt = `Tu es l'assistant de veille réglementaire d'IGTS pour des entreprises tunisiennes.
-Réponds en français, de façon claire et concise, UNIQUEMENT à partir des textes ci-dessous.
-Cite les textes utilisés par leur numéro entre crochets, par exemple [1].
-Si les textes ne permettent pas de répondre, dis-le simplement et n'invente rien.
+RÈGLES DE RÉPONSE :
+1. Si la question porte sur la réglementation ou la loi, réponds UNIQUEMENT à partir des textes applicables fournis ci-dessous. Cite les textes utilisés par leur numéro entre crochets, par exemple [1].
+2. Si la question porte sur l'utilisation de l'application (ex: "comment modifier mon profil", "comment ajouter une action"), réponds de façon utile et courtoise. (Pour le profil, l'utilisateur peut aller dans "Mon compte" ou utiliser le menu de navigation).
+3. Si la question est une salutation ou d'ordre général, sois poli et propose ton aide.
+4. Réponds toujours en français, de façon claire, concise et professionnelle.
 
-Textes applicables à l'entreprise :
+Textes applicables à l'entreprise pour cette question :
 ${context}
 
-Question : ${question}
+Question de l'utilisateur : ${question}
 
 Réponse :`;
 
+    if (!this.genAI) {
+      return {
+        answer:
+          "L'assistant est momentanément indisponible (clé API non configurée). Voici les textes de votre veille les plus proches de votre question.",
+        sources,
+        unavailable: true,
+      };
+    }
+
     try {
-      const res = await fetch(`${this.ollamaUrl}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: this.model, prompt, stream: false, options: { temperature: 0.1 } }),
-        signal: AbortSignal.timeout(120_000),
-      });
-      if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
-      const data = (await res.json()) as { response?: string };
-      return { answer: (data.response ?? '').trim(), sources };
+      const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash', generationConfig: { temperature: 0.1 } });
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text();
+      
+      // Ne renvoyer que les sources qui ont été effectivement citées dans la réponse
+      const usedSources = sources.filter((_, i) => responseText.includes(`[${i + 1}]`));
+
+      return { answer: responseText.trim(), sources: usedSources };
     } catch (error) {
-      this.logger.error(`Ollama unavailable: ${(error as Error).message}`);
+      this.logger.error(`Gemini API unavailable: ${(error as Error).message}`);
       return {
         answer:
           "L'assistant est momentanément indisponible. Voici les textes de votre veille les plus proches de votre question.",
@@ -122,3 +131,4 @@ Réponse :`;
     }
   }
 }
+

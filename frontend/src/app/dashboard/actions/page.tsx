@@ -199,8 +199,8 @@ export default function ActionsPage() {
         </div>
       )}
 
-      <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center">
-        <div role="group" aria-label="Affichage" className="glass flex self-start rounded-xl p-1">
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <div role="group" aria-label="Affichage" className="glass flex rounded-xl p-1">
           {(["board", "list"] as View[]).map((v) => (
             <button
               key={v}
@@ -233,10 +233,10 @@ export default function ActionsPage() {
             </button>
           ))}
         </div>
-        <div className="flex-1" />
-        <SearchInput value={search} onChange={setSearch} placeholder="Rechercher une action…" className="lg:w-64" />
+        <div className="hidden flex-1 xl:block" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Rechercher une action…" className="w-full sm:w-60" />
         {domains.length > 1 && (
-          <Select aria-label="Domaine" value={domain} onChange={(e) => setDomain(e.target.value)} className="lg:w-56">
+          <Select aria-label="Domaine" value={domain} onChange={(e) => setDomain(e.target.value)} className="w-full sm:w-56">
             <option value="">Tous les domaines</option>
             {domains.map((d) => (
               <option key={d} value={d}>
@@ -248,7 +248,7 @@ export default function ActionsPage() {
       </div>
 
       {loading && !data && (
-        <div className="grid gap-5 lg:grid-cols-3">
+        <div className="grid auto-cols-[minmax(290px,1fr)] grid-flow-col gap-5 overflow-x-auto">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-[420px] rounded-[20px]" />
           ))}
@@ -266,7 +266,7 @@ export default function ActionsPage() {
       )}
 
       {data && data.items.length > 0 && view === "board" && (
-        <div className="grid items-start gap-5 lg:grid-cols-3">
+        <div className="-mx-1 grid auto-cols-[minmax(290px,1fr)] grid-flow-col items-start gap-5 overflow-x-auto px-1 pb-2">
           {ACTION_COLUMNS.map((col) => {
             const list = items.filter((a) => (a.status?.id ?? 1) === col.id);
             return (
@@ -289,7 +289,7 @@ export default function ActionsPage() {
                   <span className={cn("h-2.5 w-2.5 rounded-full", col.dot)} />
                   <h2 className="text-[14.5px] font-semibold text-ink-900">{col.label}</h2>
                   <span className="text-[13px] text-ink-500">{list.length}</span>
-                  <span className="ml-auto text-xs text-ink-500">{col.hint}</span>
+                  <span className="ml-auto hidden text-xs text-ink-500 2xl:inline">{col.hint}</span>
                 </div>
                 {list.map((a) => (
                   <ActionCard

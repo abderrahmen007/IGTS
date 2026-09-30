@@ -13,6 +13,11 @@ export interface UserPreferences {
   tourSeenAt: string | null;
 }
 
+/** Drops undefined keys (validated DTO instances carry every declared field). */
+function defined<T extends object>(o: T): Partial<T> {
+  return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Partial<T>;
+}
+
 export const DEFAULT_PREFERENCES: UserPreferences = {
   emailNewTexts: true,
   emailReminders: true,
@@ -44,11 +49,11 @@ export class PreferencesService {
   }
 
   get(accountId: number): UserPreferences {
-    return { ...DEFAULT_PREFERENCES, ...(this.data[String(accountId)] ?? {}) };
+    return { ...DEFAULT_PREFERENCES, ...defined(this.data[String(accountId)] ?? {}) };
   }
 
   async update(accountId: number, patch: Partial<UserPreferences>): Promise<UserPreferences> {
-    const next = { ...this.get(accountId), ...patch };
+    const next = { ...this.get(accountId), ...defined(patch) };
     this.data[String(accountId)] = next;
     await this.persist();
     return next;

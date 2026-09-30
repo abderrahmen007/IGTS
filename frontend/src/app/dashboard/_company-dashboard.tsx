@@ -22,12 +22,24 @@ function firstName(nom: string) {
 
 function domainIcon(name: string): IconName {
   const n = name.toLowerCase();
+  if (n.includes("agroalimentaire")) return "apple";
   if (n.includes("santé") || n.includes("sécurité")) return "shield";
   if (n.includes("environnement")) return "leaf";
   if (n.includes("energie") || n.includes("énergie")) return "bolt";
   if (n.includes("social")) return "users";
   if (n.includes("qualité")) return "award";
   return "file";
+}
+
+function domainColor(name: string): { bg: string; text: string } {
+  const n = name.toLowerCase();
+  if (n.includes("agroalimentaire")) return { bg: "bg-saffron-50", text: "text-saffron-700" };
+  if (n.includes("santé") || n.includes("sécurité")) return { bg: "bg-coral-50", text: "text-coral-700" };
+  if (n.includes("environnement")) return { bg: "bg-ok-50", text: "text-ok-700" };
+  if (n.includes("energie") || n.includes("énergie")) return { bg: "bg-warn-50", text: "text-warn-700" };
+  if (n.includes("social")) return { bg: "bg-info-50", text: "text-info-700" };
+  if (n.includes("qualité")) return { bg: "bg-brand-50", text: "text-brand-700" };
+  return { bg: "bg-ink-50", text: "text-ink-700" };
 }
 
 // ─── Key services ────────────────────────────────────────────────────
@@ -406,14 +418,16 @@ export function CompanyDashboard() {
             <span className="text-[13px] text-ink-500">{plural(data.bySecteur.length, "domaine suivi", "domaines suivis")}</span>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {data.bySecteur.map((d) => (
+            {data.bySecteur.map((d) => {
+              const color = domainColor(d.name);
+              return (
               <Link
                 key={d.id}
                 href={`/dashboard/my-texts?secteurId=${d.id}`}
                 className="lift flex flex-col gap-3 rounded-[18px] border border-ink-200/80 bg-white px-5 py-[18px]"
               >
                 <span className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-brand-50 text-brand-800">
+                  <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px]", color.bg, color.text)}>
                     <Icon name={domainIcon(d.name)} size={18} strokeWidth={1.8} />
                   </span>
                   <span className="flex min-w-0 flex-col">
@@ -437,7 +451,8 @@ export function CompanyDashboard() {
                   <b className="font-semibold text-ink-900">{formatPercent(d.complianceRate)}</b> en règle
                 </span>
               </Link>
-            ))}
+            );
+            })}
           </div>
         </section>
       )}

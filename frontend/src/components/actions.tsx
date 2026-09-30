@@ -330,7 +330,7 @@ export function ActionCard({
       <button
         type="button"
         onClick={onOpen}
-        className="text-left text-[14.5px] font-semibold leading-snug text-ink-900 after:absolute after:inset-0 group-focus-within:underline"
+        className="line-clamp-3 text-left text-[14.5px] font-semibold leading-snug text-ink-900 after:absolute after:inset-0 group-focus-within:underline"
       >
         {action.description || "Action"}
       </button>

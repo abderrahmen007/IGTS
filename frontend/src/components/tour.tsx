@@ -95,28 +95,53 @@ function measure(target: string): Box | null {
   return { x: r.left - PAD, y: r.top - PAD, w: r.width + PAD * 2, h: r.height + PAD * 2 };
 }
 
-function cardPosition(box: Box | null, place: Step["place"]) {
+/**
+ * Places the step card next to the highlighted element without covering it:
+ * the preferred side first, then below, above, right, left; on very small
+ * screens it docks at the bottom of the viewport.
+ */
+function cardPosition(box: Box | null, place: Step["place"], cardH: number) {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const w = Math.min(CARD_W, vw - 24);
-  if (!box || vw < 640) return { left: (vw - w) / 2, top: Math.max(16, vh - 280), width: w };
-  let left = box.x;
-  let top = box.y + box.h + 14;
-  if (place === "left") {
-    left = box.x - w - 16;
-    top = box.y + 20;
-    if (left < 12) {
-      left = box.x;
-      top = box.y + box.h + 14;
-    }
+  const h = cardH || 240;
+  const M = 12;
+  const G = 14;
+  const clampX = (x: number) => Math.max(M, Math.min(x, vw - w - M));
+  const clampY = (y: number) => Math.max(M, Math.min(y, vh - h - M));
+  if (!box || vw < 640) return { left: (vw - w) / 2, top: vh - h - 16, width: w };
+
+  const fits = {
+    below: box.y + box.h + G + h <= vh - M,
+    above: box.y - G - h >= M,
+    right: box.x + box.w + G + w <= vw - M,
+    left: box.x - G - w >= M,
+  };
+  const order: (keyof typeof fits)[] =
+    place === "left"
+      ? ["left", "below", "above", "right"]
+      : place === "top"
+        ? ["above", "left", "below", "right"]
+        : ["below", "above", "right", "left"];
+  const side = order.find((o) => fits[o]);
+
+  switch (side) {
+    case "below":
+      return { left: clampX(box.x), top: box.y + box.h + G, width: w };
+    case "above":
+      return { left: clampX(place === "top" ? box.x + box.w - w : box.x), top: box.y - G - h, width: w };
+    case "right":
+      return { left: box.x + box.w + G, top: clampY(box.y), width: w };
+    case "left":
+      return { left: box.x - G - w, top: clampY(box.y), width: w };
+    default:
+      // No free side: dock at the bottom corner farthest from the element's centre
+      return {
+        left: box.x + box.w / 2 > vw / 2 ? M : vw - w - M,
+        top: vh - h - M,
+        width: w,
+      };
   }
-  if (place === "top") {
-    left = box.x + box.w - w;
-    top = box.y - 250;
-  }
-  left = Math.max(12, Math.min(left, vw - w - 12));
-  top = Math.max(12, Math.min(top, vh - 250));
-  return { left, top, width: w };
 }
 
 export function TourProvider({ children }: { children: ReactNode }) {
@@ -127,6 +152,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const [index, setIndex] = useState(0);
   const [box, setBox] = useState<Box | null>(null);
   const [hint, setHint] = useState(false);
+  const [cardH, setCardH] = useState(240);
   const pending = useRef(false);
   const autoStarted = useRef(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -194,7 +220,10 @@ export function TourProvider({ children }: { children: ReactNode }) {
   }, [phase, index]);
 
   useEffect(() => {
-    if (phase !== "idle") cardRef.current?.focus();
+    if (phase === "idle") return;
+    cardRef.current?.focus();
+    const h = cardRef.current?.offsetHeight;
+    if (h) window.requestAnimationFrame(() => setCardH(h));
   }, [phase, index]);
 
   // Keyboard: Escape skips, arrows move
@@ -221,7 +250,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
 
   const step = STEPS[index];
   const showSpot = phase === "step" && box;
-  const pos = typeof window !== "undefined" && phase === "step" ? cardPosition(box, step.place) : null;
+  const pos = typeof window !== "undefined" && phase === "step" ? cardPosition(box, step.place, cardH) : null;
   const helpBox = hint && typeof window !== "undefined" ? measure("help") : null;
 
   const overlay =

@@ -118,7 +118,7 @@ export default function EvaluatePage() {
       {error && <ErrorState message={error} onRetry={() => fetchQueue(skipped)} />}
 
       {queue === null && !error && (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_440px]">
           <Skeleton className="h-[480px] rounded-[22px]" />
           <Skeleton className="h-[480px] rounded-[22px]" />
         </div>
@@ -150,7 +150,7 @@ export default function EvaluatePage() {
       )}
 
       {head && (
-        <div key={head.id} className="animate-[rise_280ms_var(--ease-out-soft)] grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
+        <div key={head.id} className="animate-[rise_280ms_var(--ease-out-soft)] grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_440px]">
           {current ? (
             <>
               <TextReader detail={current} clamp />
@@ -163,7 +163,7 @@ export default function EvaluatePage() {
                 }}
                 onNext={() => next()}
                 onSkip={skip}
-                className="lg:sticky lg:top-24"
+                className="xl:sticky xl:top-24"
               />
             </>
           ) : (

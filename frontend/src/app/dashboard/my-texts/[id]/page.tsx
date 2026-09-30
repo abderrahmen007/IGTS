@@ -256,7 +256,7 @@ export default function TextDetailPage() {
 
   if (loading || !data) {
     return (
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_440px]">
         <Skeleton className="h-[520px] rounded-[22px]" />
         <Skeleton className="h-[520px] rounded-[22px]" />
       </div>
@@ -273,13 +273,13 @@ export default function TextDetailPage() {
         <Icon name="arrowLeft" size={15} />
         Retour
       </button>
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_440px]">
         <div className="flex min-w-0 flex-col gap-6">
           <TextReader detail={data} />
           <ActionsSection detail={data} onChange={update} />
           <History detail={data} />
         </div>
-        <EvaluationPanel detail={data} mode="detail" onSaved={update} className="lg:sticky lg:top-24" />
+        <EvaluationPanel detail={data} mode="detail" onSaved={update} className="xl:sticky xl:top-24" />
       </div>
     </div>
   );
