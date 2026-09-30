@@ -72,7 +72,7 @@ export function TextReader({ detail, clamp = false }: { detail: TextDetail; clam
         )}
         <button
           type="button"
-          onClick={() => openAssistant("Explique-moi ce texte simplement : qu’est-ce qu’il m’oblige à faire ?")}
+          onClick={() => openAssistant(`Explique-moi ce texte simplement : "${t.titre}". Qu’est-ce qu’il m’oblige à faire ?`)}
           className="inline-flex h-11 items-center gap-2 rounded-xl bg-paper px-[18px] text-sm font-semibold text-brand-800 hover:bg-ink-100"
         >
           <Icon name="sparkle" size={18} />
