@@ -37,3 +37,6 @@ backend/.devin/
 # Uploaded files
 backend/uploads/
 backend/outbox/
+
+# Per-user preferences store (JSON)
+backend/data/

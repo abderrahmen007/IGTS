@@ -5,6 +5,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeService } from './realtime.service';
 import { MailerService } from './mailer.service';
 import { deadlinesEmail, newTextsEmail } from './email-templates';
+import { PreferencesService } from '../preferences/preferences.service';
+import { LIVE_ACTIONS_TEXT, OPEN_ACTION_STATES, daysUntil } from '../company/rules';
 
 export interface NewTextNotification {
   companyId: number;
@@ -30,19 +32,26 @@ export class NotificationsService {
     private prisma: PrismaService,
     private realtime: RealtimeService,
     private mailer: MailerService,
+    private prefs: PreferencesService,
     config: ConfigService,
   ) {
     this.appUrl = (config.get<string>('APP_URL') ?? 'http://localhost:3000').replace(/\/$/, '');
   }
 
-  /** Active users of a company (main account + sub-accounts). */
-  private async recipients(ownerId: number) {
+  /**
+   * Active users of a company (main account + sub-accounts) who accept this
+   * kind of e-mail in their profile.
+   */
+  private async recipients(ownerId: number, kind: 'emailNewTexts' | 'emailReminders') {
     const users = await this.prisma.company.findMany({
       where: { OR: [{ id: ownerId }, { multicompte: ownerId }], deleted: false, activated: true },
-      select: { email: true, nom: true, multicompte: true },
+      select: { id: true, email: true, nom: true, multicompte: true },
     });
     const main = users.find((u) => u.multicompte === 0);
-    return { emails: users.map((u) => u.email), name: main?.nom ?? users[0]?.nom ?? '' };
+    return {
+      emails: this.prefs.filter(users, kind).map((u) => u.email),
+      name: main?.nom ?? users[0]?.nom ?? '',
+    };
   }
 
   private unreadCount(ownerId: number) {
@@ -106,7 +115,7 @@ export class NotificationsService {
         },
       });
 
-      const { emails, name } = await this.recipients(ownerId);
+      const { emails, name } = await this.recipients(ownerId, 'emailNewTexts');
       const mail = newTextsEmail({
         name,
         titles: list.map((i) => titles.get(i.texteId) ?? 'Texte réglementaire'),
@@ -114,6 +123,45 @@ export class NotificationsService {
       });
       await this.mailer.send({ to: emails, ...mail });
     }
+  }
+
+  /**
+   * IGTS changed a text: companies that follow it get an in-app notification
+   * (no e-mail, to avoid noise on small corrections).
+   */
+  async notifyTextUpdated(texteId: number) {
+    const links = await this.prisma.texteSociete.findMany({
+      where: { texteId, OR: [{ deleted: false }, { deleted: null }], company: { deleted: false } },
+      select: { id: true, companyId: true, secteurId: true, themeId: true },
+    });
+    const now = new Date();
+    const items = links.filter((l) => l.companyId);
+    if (!items.length) return 0;
+    await this.prisma.notification.createMany({
+      data: items.map((l) => ({
+        companyId: l.companyId,
+        texteId,
+        texteSocieteId: l.id,
+        secteurId: l.secteurId,
+        themeId: l.themeId,
+        message: 'Un texte de votre veille a été mis à jour par IGTS. Vérifiez votre évaluation.',
+        isRead: false,
+        etat: 'nonlu',
+        createdAt: now,
+      })),
+    });
+    for (const l of items) {
+      this.realtime.publish(l.companyId!, {
+        type: 'notification',
+        unread: await this.unreadCount(l.companyId!),
+        item: {
+          message: 'Un texte de votre veille a été mis à jour par IGTS.',
+          texteSocieteId: l.id,
+          createdAt: now.toISOString(),
+        },
+      });
+    }
+    return items.length;
   }
 
   /** Tells open browsers of a company to refresh their figures (e.g. after an evaluation by a colleague). */
@@ -129,28 +177,28 @@ export class NotificationsService {
    */
   @Cron('0 45 7 * * *', { timeZone: 'Africa/Tunis' })
   async remindActionDeadlines() {
-    const actions = await this.prisma.plusaction.findMany({
-      where: { gestionactionId: 1, cloture: { not: null } },
-      select: { id: true, texteId: true, texteSocieteId: true, cloture: true, libelleAction: true },
-    });
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const due: { action: (typeof actions)[number]; days: number }[] = [];
-    for (const a of actions) {
-      const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(a.cloture!.trim());
-      if (!m) continue;
-      const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
-      const days = Math.round((d.getTime() - today.getTime()) / 86_400_000);
-      if (days === 7 || days === 1 || days === -1) due.push({ action: a, days });
-    }
-    if (!due.length) return;
-
+    // Only actions that still need work, on texts that still call for action
+    // (actions of a text marked "ne nous concerne pas" are on hold)
     const ts = await this.prisma.texteSociete.findMany({
-      where: { id: { in: due.map((d) => d.action.texteSocieteId!).filter(Boolean) }, OR: [{ deleted: false }, { deleted: null }] },
+      where: { ...LIVE_ACTIONS_TEXT, OR: [{ deleted: false }, { deleted: null }], texte: { deleted: false } },
       select: { id: true, companyId: true, texte: { select: { titre: true } } },
     });
     const tsById = new Map(ts.map((t) => [t.id, t]));
+    const actions = await this.prisma.plusaction.findMany({
+      where: {
+        gestionactionId: { in: OPEN_ACTION_STATES },
+        cloture: { not: null },
+        texteSocieteId: { in: [...tsById.keys()] },
+      },
+      select: { id: true, texteId: true, texteSocieteId: true, cloture: true, libelleAction: true },
+    });
+
+    const due: { action: (typeof actions)[number]; days: number }[] = [];
+    for (const a of actions) {
+      const days = daysUntil(a.cloture);
+      if (days === 7 || days === 1 || days === -1) due.push({ action: a, days });
+    }
+    if (!due.length) return;
 
     const byCompany = new Map<number, { label: string; when: string; tsId: number; texteId: number | null }[]>();
     for (const { action, days } of due) {
@@ -185,7 +233,7 @@ export class NotificationsService {
         unread: await this.unreadCount(ownerId),
         item: { message: `${list.length} action(s) arrivent à échéance.`, createdAt: now.toISOString() },
       });
-      const { emails, name } = await this.recipients(ownerId);
+      const { emails, name } = await this.recipients(ownerId, 'emailReminders');
       await this.mailer.send({ to: emails, ...deadlinesEmail({ name, items: list, appUrl: this.appUrl }) });
     }
     this.logger.log(`Rappels d’échéance envoyés à ${byCompany.size} entreprise(s)`);

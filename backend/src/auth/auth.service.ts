@@ -1,44 +1,22 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
-import { AuthUser } from '../common/auth-user';
+import { AuthUser, canEditFromRights } from '../common/auth-user';
+import { verifyPassword } from '../common/password';
 
 const INVALID = 'Adresse e-mail ou mot de passe incorrect';
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
   ) {}
 
-  /**
-   * Verifies a password hashed by the legacy Symfony app.
-   * Symfony's "auto" hasher produced argon2id hashes; one legacy account still
-   * has a bcrypt ($2y$) hash, which is refused cleanly instead of crashing.
-   */
-  private async verifyPassword(hash: string, plain: string): Promise<boolean> {
-    if (hash.startsWith('$argon2')) {
-      try {
-        return await argon2.verify(hash, plain);
-      } catch (e) {
-        this.logger.warn(`Malformed argon2 hash: ${(e as Error).message}`);
-        return false;
-      }
-    }
-    if (/^\$2[aby]\$/.test(hash)) {
-      this.logger.warn('Login refused: account uses a legacy bcrypt hash — password must be reset');
-    }
-    return false;
-  }
-
   async loginCompany(dto: LoginDto) {
     const company = await this.prisma.company.findUnique({ where: { email: dto.email.trim() } });
-    if (!company || !(await this.verifyPassword(company.password, dto.password))) {
+    if (!company || !(await verifyPassword(company.password, dto.password))) {
       throw new UnauthorizedException(INVALID);
     }
     // Same rule as the legacy CompanyChecker: deleted accounts and
@@ -54,6 +32,7 @@ export class AuthService {
       email: company.email,
       nom: company.nom,
       ownerId,
+      canEdit: canEditFromRights(company.multicompte, company.droitacceeId),
     };
 
     return {
@@ -69,7 +48,7 @@ export class AuthService {
 
   async loginAdmin(dto: LoginDto) {
     const admin = await this.prisma.user.findUnique({ where: { email: dto.email.trim() } });
-    if (!admin || !(await this.verifyPassword(admin.password, dto.password))) {
+    if (!admin || !(await verifyPassword(admin.password, dto.password))) {
       throw new UnauthorizedException(INVALID);
     }
     if (!admin.valid || admin.deleted) {
@@ -82,6 +61,7 @@ export class AuthService {
       email: admin.email,
       nom: admin.nomComplet || admin.username,
       ownerId: null,
+      canEdit: true,
     };
     return { access_token: this.sign(user), user };
   }
@@ -111,6 +91,6 @@ export class AuthService {
         tel: true, adresse: true, ville: true, multicompte: true,
       },
     });
-    return company && { ...company, type: 'company', ownerId: user.ownerId };
+    return company && { ...company, type: 'company', ownerId: user.ownerId, canEdit: user.canEdit };
   }
 }

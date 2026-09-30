@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import * as argon2 from 'argon2';
+import { hashPassword } from '../common/password';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminUserDto, CreateAdminUserDto } from './admin.dto';
 
@@ -41,7 +41,7 @@ export class AdminUsersService {
         valid: true,
         deleted: false,
         admin: true,
-        password: await argon2.hash(dto.password, { type: argon2.argon2id }),
+        password: await hashPassword(dto.password),
       },
     });
     return this.list();
@@ -68,7 +68,7 @@ export class AdminUsersService {
     await this.get(id);
     await this.prisma.user.update({
       where: { id },
-      data: { password: await argon2.hash(password, { type: argon2.argon2id }) },
+      data: { password: await hashPassword(password) },
     });
     return this.list();
   }

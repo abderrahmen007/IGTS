@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
@@ -91,6 +91,10 @@ export class SubAccountDto {
 
   @IsOptional() @IsString() @MaxLength(255)
   fonction?: string;
+
+  /** true = "Tous les droits" (can evaluate and act), false = read-only */
+  @IsOptional() @IsBoolean()
+  canEdit?: boolean;
 }
 
 export class CreateSubAccountDto extends SubAccountDto {
@@ -124,6 +128,10 @@ export class TextDto {
 
   @Type(() => Number) @IsInt()
   themeId!: number;
+
+  /** On update: notify the companies that follow this text (multipart sends "true"/"false"). */
+  @IsOptional() @Transform(({ value }) => value === true || value === 'true') @IsBoolean()
+  notifyCompanies?: boolean;
 }
 
 // ─── Reference data ──────────────────────────────────────────────────

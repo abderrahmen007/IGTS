@@ -1,8 +1,9 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import * as argon2 from 'argon2';
+import { hashPassword } from '../common/password';
 import { PrismaService } from '../prisma/prisma.service';
 import { AssignmentService } from './assignment.service';
 import { CompanyService, computeStats } from '../company/company.service';
+import { canEditFromRights, DROIT_TOUS } from '../common/auth-user';
 import type { AuthUser } from '../common/auth-user';
 import type { ListTextsQuery } from '../company/company.dto';
 import {
@@ -14,7 +15,9 @@ import {
   SubscriptionsDto,
 } from './admin.dto';
 
-const hash = (p: string) => argon2.hash(p, { type: argon2.argon2id });
+const hash = hashPassword;
+/** Legacy `droitaccee` id 5 (empty label) = read-only, as created by Symfony. */
+const DROIT_LECTURE = 5;
 const clean = (v?: string | null) => (v?.trim() ? v.trim() : null);
 
 @Injectable()
@@ -49,7 +52,7 @@ export class AdminCompaniesService {
       this.prisma.company.findMany({
         where: { multicompte: id, deleted: false },
         orderBy: { createdAt: 'asc' },
-        select: { id: true, nom: true, email: true, tel: true, fonction: true, activated: true, createdAt: true },
+        select: { id: true, nom: true, email: true, tel: true, fonction: true, activated: true, createdAt: true, droitacceeId: true },
       }),
       this.prisma.texteSociete.groupBy({
         by: ['applicabiliteId', 'gestionetatId'],
@@ -83,7 +86,11 @@ export class AdminCompaniesService {
         themeIds: themeRows.map((t) => t.themeId),
       },
       catalog: secteurs.map((s) => ({ id: s.id, name: s.name, themes: s.themes })),
-      subAccounts: subs.map((s) => ({ ...s, active: s.activated })),
+      subAccounts: subs.map(({ droitacceeId, ...s }) => ({
+        ...s,
+        active: s.activated,
+        canEdit: canEditFromRights(1, droitacceeId),
+      })),
     };
   }
 
@@ -242,7 +249,7 @@ export class AdminCompaniesService {
   // ─── Company texts ─────────────────────────────────────────────────
 
   listTexts(id: number, q: ListTextsQuery) {
-    const asCompany: AuthUser = { id, type: 'company', email: '', nom: '', ownerId: id };
+    const asCompany: AuthUser = { id, type: 'company', email: '', nom: '', ownerId: id, canEdit: false };
     return this.companyService.listTexts(asCompany, q);
   }
 
@@ -279,7 +286,8 @@ export class AdminCompaniesService {
         raisonsociale: parent.raisonsociale,
         tmpphoto: parent.tmpphoto,
         droit: 1,
-        droitacceeId: 5,
+        // Read-only unless IGTS grants "Tous les droits" (legacy default)
+        droitacceeId: dto.canEdit ? DROIT_TOUS : DROIT_LECTURE,
         activated: true,
         enabled: true,
         deleted: false,
@@ -305,6 +313,7 @@ export class AdminCompaniesService {
         email: dto.email.trim().toLowerCase(),
         tel: clean(dto.tel),
         fonction: clean(dto.fonction),
+        ...(dto.canEdit !== undefined ? { droitacceeId: dto.canEdit ? DROIT_TOUS : DROIT_LECTURE } : {}),
         updatedAt: new Date(),
       },
     });

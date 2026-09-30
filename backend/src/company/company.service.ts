@@ -1,28 +1,60 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Plusaction, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { FilesService } from '../files/files.service';
+import { FilesService, UploadedFile, joinFiles, splitFiles } from '../files/files.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { AuthUser } from '../common/auth-user';
+import { PreferencesService } from '../preferences/preferences.service';
+import { AuthUser, canEditFromRights } from '../common/auth-user';
+import { hashPassword, verifyPassword } from '../common/password';
 import { clampPage, htmlToText, parseFrenchDate, toFrenchDate } from '../common/text-utils';
 import {
+  ACTION_EFFICACE,
+  ACTION_EN_COURS,
+  APPLICABILITE_NON_ANALYSEE,
+  APPLICABLE,
+  CONFORME,
+  ETAT_NON_ANALYSE,
+  EvaluationState,
+  INDICATIF,
+  LIVE_ACTIONS_TEXT,
+  NON_APPLICABLE,
+  NON_CONFORME,
+  OPEN_ACTION_STATES,
+  actionBlockReason,
+  actionsAllowed,
+  daysUntil,
+  normaliseEvaluation,
+  suggestsCompliance,
+} from './rules';
+import {
+  ChangePasswordDto,
   CreateActionDto,
   EvaluateTextDto,
   ListActionsQuery,
   ListTextsQuery,
+  PreferencesDto,
   TextStatus,
   UpdateActionDto,
+  UpdateProfileDto,
 } from './company.dto';
 
-/** Reference ids from the legacy lookup tables (see schema.prisma). */
-export const APPLICABLE = 1;
-export const NON_APPLICABLE = 2;
-export const APPLICABILITE_NON_ANALYSEE = 3;
-export const CONFORME = 1;
-export const NON_CONFORME = 2;
-export const INDICATIF = 3;
-export const ETAT_NON_ANALYSE = 4;
-export const ACTION_EN_COURS = 1;
+// Kept for the modules that import them from here
+export {
+  APPLICABLE,
+  NON_APPLICABLE,
+  APPLICABILITE_NON_ANALYSEE,
+  CONFORME,
+  NON_CONFORME,
+  INDICATIF,
+  ETAT_NON_ANALYSE,
+  ACTION_EN_COURS,
+} from './rules';
 
 const NOT_DELETED: Prisma.TexteSocieteWhereInput = {
   OR: [{ deleted: false }, { deleted: null }],
@@ -79,12 +111,25 @@ export function computeStats(
   return s;
 }
 
+/** A text changed by IGTS after the company's last evaluation (dates of evaluation have no time). */
+function updatedSince(texteUpdatedAt: Date | null, evaluatedOn: Date | null): boolean {
+  if (!texteUpdatedAt || !evaluatedOn) return false;
+  return texteUpdatedAt.getTime() > evaluatedOn.getTime() + 86_400_000;
+}
+
+const TEXT_INCLUDE = {
+  texte: { include: { type: true } },
+  applicabilite: true,
+  gestionEtat: true,
+} satisfies Prisma.TexteSocieteInclude;
+
 @Injectable()
 export class CompanyService {
   constructor(
     private prisma: PrismaService,
     private files: FilesService,
     private notifier: NotificationsService,
+    private prefs: PreferencesService,
   ) {}
 
   private scope(user: AuthUser): Prisma.TexteSocieteWhereInput {
@@ -102,42 +147,69 @@ export class CompanyService {
     return { secteurs, applicabilites, etats, actionStates, types };
   }
 
+  /** Texts of the company whose actions count (see LIVE_ACTIONS_TEXT). */
+  private async liveTexts(user: AuthUser) {
+    return this.prisma.texteSociete.findMany({
+      where: { ...this.scope(user), ...LIVE_ACTIONS_TEXT },
+      select: {
+        id: true,
+        applicabiliteId: true,
+        gestionetatId: true,
+        secteurId: true,
+        themeId: true,
+        texte: { select: { titre: true, num: true, type: { select: { name: true } } } },
+      },
+    });
+  }
+
+  private async themeNames(ids: (number | null)[]) {
+    const wanted = [...new Set(ids.filter((i): i is number => !!i))];
+    if (!wanted.length) return new Map<number, string>();
+    const rows = await this.prisma.theme.findMany({ where: { id: { in: wanted } }, select: { id: true, name: true } });
+    return new Map(rows.map((t) => [t.id, t.name ?? '']));
+  }
+
   // ─── Overview ──────────────────────────────────────────────────────
 
   async overview(user: AuthUser) {
     const where = this.scope(user);
 
-    const [grouped, bySecteurRaw, recent, company, owner, openActions, unread] = await Promise.all([
-      this.prisma.texteSociete.groupBy({
-        by: ['applicabiliteId', 'gestionetatId'],
-        where,
-        _count: { _all: true },
-      }),
-      this.prisma.texteSociete.groupBy({
-        by: ['secteurId', 'applicabiliteId', 'gestionetatId'],
-        where,
-        _count: { _all: true },
-      }),
-      this.prisma.texteSociete.findMany({
-        where,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        take: 6,
-        include: { texte: { include: { type: true } }, applicabilite: true, gestionEtat: true },
-      }),
-      this.prisma.company.findUnique({ where: { id: user.id } }),
-      this.prisma.company.findUnique({ where: { id: user.ownerId! } }),
-      this.countActions(user, ACTION_EN_COURS),
-      this.prisma.notification.count({
-        where: { companyId: user.ownerId!, OR: [{ isRead: false }, { isRead: null }] },
-      }),
-    ]);
+    const [grouped, bySecteurRaw, recent, company, owner, unread, live, next, nonConformes, secteurs] =
+      await Promise.all([
+        this.prisma.texteSociete.groupBy({ by: ['applicabiliteId', 'gestionetatId'], where, _count: { _all: true } }),
+        this.prisma.texteSociete.groupBy({
+          by: ['secteurId', 'applicabiliteId', 'gestionetatId'],
+          where,
+          _count: { _all: true },
+        }),
+        this.prisma.texteSociete.findMany({
+          where,
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: 6,
+          include: TEXT_INCLUDE,
+        }),
+        this.prisma.company.findUnique({ where: { id: user.id } }),
+        this.prisma.company.findUnique({ where: { id: user.ownerId! } }),
+        this.prisma.notification.count({
+          where: { companyId: user.ownerId!, OR: [{ isRead: false }, { isRead: null }] },
+        }),
+        this.liveTexts(user),
+        this.prisma.texteSociete.findMany({
+          where: { AND: [where, STATUS_FILTERS['a-analyser']] },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: 3,
+          include: TEXT_INCLUDE,
+        }),
+        this.prisma.texteSociete.findMany({
+          where: { ...where, applicabiliteId: APPLICABLE, gestionetatId: NON_CONFORME },
+          select: { id: true },
+        }),
+        this.prisma.secteur.findMany(),
+      ]);
 
-    const stats = computeStats(
-      grouped.map((g) => ({ ...g, count: g._count._all })),
-    );
-
-    const secteurs = await this.prisma.secteur.findMany();
+    const stats = computeStats(grouped.map((g) => ({ ...g, count: g._count._all })));
     const secteurName = new Map(secteurs.map((s) => [s.id, s.name]));
+
     const perSecteur = new Map<number, { applicabiliteId: number; gestionetatId: number | null; count: number }[]>();
     for (const g of bySecteurRaw) {
       const key = g.secteurId ?? 0;
@@ -148,15 +220,64 @@ export class CompanyService {
       .map(([id, rows]) => ({ id, name: secteurName.get(id) ?? 'Autres', ...computeStats(rows) }))
       .sort((a, b) => b.total - a.total);
 
+    // Action plan figures only count "live" actions (texts that still call for action)
+    const liveById = new Map(live.map((t) => [t.id, t]));
+    const actions = await this.prisma.plusaction.findMany({
+      where: { texteSocieteId: { in: [...liveById.keys()] } },
+    });
+    const today = new Date();
+    const open = actions
+      .filter((a) => OPEN_ACTION_STATES.includes(a.gestionactionId ?? 0))
+      .map((a) => ({ a, dueIn: daysUntil(a.cloture, today) }));
+    const withAction = new Set(actions.map((a) => a.texteSocieteId));
+    const themes = await this.themeNames(open.map((o) => liveById.get(o.a.texteSocieteId!)?.themeId ?? null));
+
+    const upcoming = [...open]
+      .sort((x, y) => (x.dueIn ?? 1e9) - (y.dueIn ?? 1e9))
+      .slice(0, 4)
+      .map(({ a, dueIn }) => {
+        const t = liveById.get(a.texteSocieteId!);
+        return {
+          id: a.id,
+          texteSocieteId: a.texteSocieteId,
+          description: htmlToText(a.libelleAction),
+          responsable: a.responsableAction,
+          dateCloture: parseFrenchDate(a.cloture),
+          dueIn,
+          texteTitre: t?.texte?.titre ?? '',
+          theme: t?.themeId ? themes.get(t.themeId) ?? null : null,
+        };
+      });
+
     return {
       company: {
         nom: company?.nom,
         raisonsociale: owner?.raisonsociale ?? company?.raisonsociale,
         lastLogin: company?.updatedAt,
       },
-      stats: { ...stats, openActions, unreadNotifications: unread },
+      me: { nom: user.nom, canEdit: user.canEdit },
+      stats: {
+        ...stats,
+        openActions: open.length,
+        overdueActions: open.filter((o) => o.dueIn !== null && o.dueIn < 0).length,
+        nonConformeSansAction: nonConformes.filter((n) => !withAction.has(n.id)).length,
+        unreadNotifications: unread,
+      },
       bySecteur,
       recentTexts: recent.map((ts) => this.toListItem(ts, secteurName)),
+      nextToEvaluate: next.map((ts) => this.toListItem(ts, secteurName)),
+      upcomingActions: upcoming,
+    };
+  }
+
+  /** Small counters for the navigation badges. */
+  async counters(user: AuthUser) {
+    const o = await this.overview(user);
+    return {
+      toEvaluate: o.stats.toAnalyse,
+      overdueActions: o.stats.overdueActions,
+      openActions: o.stats.openActions,
+      unreadNotifications: o.stats.unreadNotifications,
     };
   }
 
@@ -190,7 +311,7 @@ export class CompanyService {
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip,
         take: pageSize,
-        include: { texte: { include: { type: true } }, applicabilite: true, gestionEtat: true },
+        include: TEXT_INCLUDE,
       }),
       this.prisma.secteur.findMany(),
     ]);
@@ -270,6 +391,7 @@ export class CompanyService {
       ? lk.secteurs.find((s) => s.id === ts.secteurId)
       : ts.texte!.secteur;
     const t = ts.texte!;
+    const blockReason = actionBlockReason(ts);
 
     return {
       id: ts.id,
@@ -285,6 +407,7 @@ export class CompanyService {
         secteur: secteur ? { id: secteur.id, name: secteur.name } : null,
         pdfUrl: this.files.pdfUrl(t.tmpphoto),
         addedAt: t.createdAt,
+        updatedAt: t.updatedAt,
       },
       assignedAt: ts.createdAt,
       applicabilite: { id: ts.applicabilite.id, name: ts.applicabilite.name },
@@ -292,6 +415,13 @@ export class CompanyService {
       comment: ts.comment,
       evaluatedAt: ts.datequifairetat,
       evaluatedBy: ts.quifairetat,
+      updatedSinceEvaluation: updatedSince(t.updatedAt, ts.datequifairetat),
+      permissions: {
+        canEdit: user.canEdit,
+        actionsAllowed: blockReason === null,
+        actionBlockReason: blockReason,
+      },
+      suggestCompliance: suggestsCompliance(ts, actions.map((a) => a.gestionactionId)),
       history: history.map((h) => ({
         id: h.id,
         date: h.datequifairetat ?? h.createdAt,
@@ -299,7 +429,7 @@ export class CompanyService {
         etat: h.gestionetatId ? etatName.get(h.gestionetatId) ?? null : null,
         applicabilite: h.applicabiliteId ? applName.get(h.applicabiliteId) ?? null : null,
       })),
-      actions: actions.map((a) => this.toAction(a, actionName)),
+      actions: actions.map((a) => ({ ...this.toAction(a, actionName), onHold: blockReason !== null })),
       options: {
         applicabilites: lk.applicabilites,
         etats: lk.etats,
@@ -310,15 +440,34 @@ export class CompanyService {
 
   async evaluate(user: AuthUser, id: number, dto: EvaluateTextDto) {
     const ts = await this.findOwned(user, id);
-    const gestionetatId = dto.applicabiliteId === APPLICABLE ? (dto.gestionetatId ?? null) : null;
-    const today = new Date();
+    const next = normaliseEvaluation(dto.applicabiliteId, dto.gestionetatId);
 
+    // Leaving a situation that calls for action puts the open actions on hold:
+    // the company must confirm it knowingly (nothing is deleted).
+    if (actionsAllowed(ts) && !actionsAllowed(next) && !dto.confirmHoldActions) {
+      const openActions = await this.prisma.plusaction.count({
+        where: { texteSocieteId: ts.id, gestionactionId: { in: OPEN_ACTION_STATES } },
+      });
+      if (openActions > 0) {
+        throw new ConflictException({
+          statusCode: 409,
+          code: 'OPEN_ACTIONS',
+          openActions,
+          message:
+            openActions === 1
+              ? 'Une action est en cours sur ce texte. Elle sera mise en pause : elle ne comptera plus et n’enverra plus de rappel. Elle reviendra si vous changez d’avis.'
+              : `${openActions} actions sont en cours sur ce texte. Elles seront mises en pause : elles ne compteront plus et n’enverront plus de rappels. Elles reviendront si vous changez d’avis.`,
+        });
+      }
+    }
+
+    const today = new Date();
     await this.prisma.$transaction([
       this.prisma.texteSociete.update({
         where: { id: ts.id },
         data: {
-          applicabiliteId: dto.applicabiliteId,
-          gestionetatId,
+          applicabiliteId: next.applicabiliteId!,
+          gestionetatId: next.gestionetatId,
           comment: dto.comment !== undefined ? dto.comment.trim() || null : undefined,
           quifairetat: user.nom,
           datequifairetat: today,
@@ -330,8 +479,8 @@ export class CompanyService {
           multicompte: user.ownerId !== user.id ? user.ownerId : 0,
           texteId: ts.texteId,
           texteSocieteId: ts.id,
-          gestionetatId,
-          applicabiliteId: dto.applicabiliteId,
+          gestionetatId: next.gestionetatId,
+          applicabiliteId: next.applicabiliteId,
           quifairetat: user.nom,
           datequifairetat: today,
           createdAt: today,
@@ -344,137 +493,348 @@ export class CompanyService {
 
   // ─── Action plans ──────────────────────────────────────────────────
 
-  private toAction(
-    a: Prisma.PlusactionGetPayload<object>,
-    actionName: Map<number, string | null>,
-  ) {
+  private toAction(a: Plusaction, actionName: Map<number, string | null>) {
     const eff = a.courrielResponsable != null ? parseInt(a.courrielResponsable, 10) : NaN;
     return {
       id: a.id,
       texteSocieteId: a.texteSocieteId,
+      number: a.numaction,
       description: htmlToText(a.libelleAction),
       responsable: a.responsableAction,
       telephone: a.telephoneResponsable,
       delai: a.echeant,
       dateOuverture: parseFrenchDate(a.dateouverture),
       dateCloture: parseFrenchDate(a.cloture),
+      dueIn: daysUntil(a.cloture),
       effectivite: Number.isFinite(eff) ? eff : null,
       status: a.gestionactionId
         ? { id: a.gestionactionId, name: actionName.get(a.gestionactionId) ?? null }
         : null,
+      files: splitFiles(a.tmpphoto).map((name) => ({ name, url: this.files.proofUrl(name) })),
       createdAt: a.createdAt,
       createdBy: a.quifairaction,
+      updatedAt: a.datequifairaction,
     };
   }
 
-  private async ownedTexteSocieteIds(user: AuthUser) {
-    const rows = await this.prisma.texteSociete.findMany({
-      where: this.scope(user),
-      select: { id: true },
-    });
-    return rows.map((r) => r.id);
+  /** Loads an action of the caller's company and checks that its text allows actions. */
+  private async ownedAction(user: AuthUser, actionId: number) {
+    const action = await this.prisma.plusaction.findUnique({ where: { id: actionId } });
+    if (!action?.texteSocieteId) throw new NotFoundException('Action introuvable');
+    const ts = await this.findOwned(user, action.texteSocieteId);
+    const reason = actionBlockReason(ts);
+    if (reason) throw new ForbiddenException(reason);
+    return { action, ts };
   }
 
-  private async countActions(user: AuthUser, gestionactionId?: number) {
-    const ids = await this.ownedTexteSocieteIds(user);
-    return this.prisma.plusaction.count({
-      where: { texteSocieteId: { in: ids }, ...(gestionactionId ? { gestionactionId } : {}) },
-    });
+  private historyRow(user: AuthUser, a: Plusaction) {
+    return {
+      companyId: user.id,
+      texteId: a.texteId,
+      multicompte: user.ownerId !== user.id ? user.ownerId : 0,
+      texteSocieteId: a.texteSocieteId,
+      gestionactionId: a.gestionactionId,
+      gestionetatId: a.gestionetatId,
+      quifairaction: user.nom,
+      datequifairaction: new Date(),
+      libelleAction: a.libelleAction,
+      responsableAction: a.responsableAction,
+      telephoneResponsable: a.telephoneResponsable,
+      courrielResponsable: a.courrielResponsable,
+      echeant: a.echeant,
+      tmpphoto: a.tmpphoto,
+      dateouverture: a.dateouverture,
+      cloture: a.cloture,
+      numaction: a.numaction,
+      createdAt: new Date(),
+      plusactionId: a.id,
+    };
   }
 
   async listActions(user: AuthUser, q: ListActionsQuery) {
-    const ids = await this.ownedTexteSocieteIds(user);
-    const [actions, lk, counts] = await Promise.all([
+    const [live, lk, all] = await Promise.all([
+      this.liveTexts(user),
+      this.lookups(),
+      this.prisma.texteSociete.findMany({ where: this.scope(user), select: { id: true } }),
+    ]);
+    const liveById = new Map(live.map((t) => [t.id, t]));
+    const liveIds = [...liveById.keys()];
+    const onHoldIds = all.map((r) => r.id).filter((id) => !liveById.has(id));
+
+    const [actions, onHold] = await Promise.all([
       this.prisma.plusaction.findMany({
         where: {
-          texteSocieteId: { in: ids },
+          texteSocieteId: { in: liveIds },
           ...(q.gestionactionId ? { gestionactionId: q.gestionactionId } : {}),
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        take: 200,
+        take: 500,
       }),
-      this.lookups(),
-      this.prisma.plusaction.groupBy({
-        by: ['gestionactionId'],
-        where: { texteSocieteId: { in: ids } },
-        _count: { _all: true },
+      this.prisma.plusaction.count({
+        where: { texteSocieteId: { in: onHoldIds }, gestionactionId: { in: OPEN_ACTION_STATES } },
       }),
     ]);
     const actionName = new Map(lk.actionStates.map((a) => [a.id, a.name]));
+    const secteurName = new Map(lk.secteurs.map((s) => [s.id, s.name]));
+    const themes = await this.themeNames(live.map((t) => t.themeId));
 
-    const textes = await this.prisma.texteSociete.findMany({
-      where: { id: { in: [...new Set(actions.map((a) => a.texteSocieteId!).filter(Boolean))] } },
-      select: { id: true, texte: { select: { titre: true } } },
+    const statesByText = new Map<number, (number | null)[]>();
+    for (const a of actions) {
+      if (!statesByText.has(a.texteSocieteId!)) statesByText.set(a.texteSocieteId!, []);
+      statesByText.get(a.texteSocieteId!)!.push(a.gestionactionId);
+    }
+    const readyForCompliance = live
+      .filter((t) => suggestsCompliance(t as EvaluationState, statesByText.get(t.id) ?? []))
+      .map((t) => ({ texteSocieteId: t.id, titre: t.texte?.titre ?? '' }));
+
+    const items = actions.map((a) => {
+      const t = liveById.get(a.texteSocieteId!);
+      return {
+        ...this.toAction(a, actionName),
+        texte: {
+          titre: t?.texte?.titre ?? '',
+          num: t?.texte?.num ?? '',
+          type: t?.texte?.type?.name ?? null,
+          secteur: t?.secteurId ? secteurName.get(t.secteurId) ?? null : null,
+          theme: t?.themeId ? themes.get(t.themeId) ?? null : null,
+          compliant: t?.gestionetatId === CONFORME,
+        },
+      };
     });
-    const titreBy = new Map(textes.map((t) => [t.id, t.texte?.titre ?? '']));
+    const openItems = items.filter((i) => OPEN_ACTION_STATES.includes(i.status?.id ?? 0));
 
     return {
-      items: actions.map((a) => ({
-        ...this.toAction(a, actionName),
-        texteTitre: a.texteSocieteId ? titreBy.get(a.texteSocieteId) ?? '' : '',
-      })),
+      items,
       counts: {
-        total: counts.reduce((n, c) => n + c._count._all, 0),
-        byStatus: counts.map((c) => ({
-          id: c.gestionactionId,
-          name: c.gestionactionId ? actionName.get(c.gestionactionId) ?? null : null,
-          count: c._count._all,
+        total: items.length,
+        open: openItems.length,
+        overdue: openItems.filter((i) => i.dueIn !== null && i.dueIn < 0).length,
+        onHold,
+        byStatus: lk.actionStates.map((s) => ({
+          id: s.id,
+          name: s.name,
+          count: items.filter((i) => i.status?.id === s.id).length,
         })),
+        averageProgress: openItems.length
+          ? Math.round(openItems.reduce((n, i) => n + (i.effectivite ?? 0), 0) / openItems.length)
+          : null,
       },
+      readyForCompliance,
       actionStates: lk.actionStates,
+      canEdit: user.canEdit,
     };
   }
 
   async createAction(user: AuthUser, texteSocieteId: number, dto: CreateActionDto) {
     const ts = await this.findOwned(user, texteSocieteId);
+    const reason = actionBlockReason(ts);
+    if (reason) throw new ForbiddenException(reason);
+
     const today = new Date();
+    const status = dto.gestionactionId ?? ACTION_EN_COURS;
+    const progress = dto.effectivite ?? (status === ACTION_EFFICACE ? 100 : 0);
     const numaction = String(
       (await this.prisma.plusaction.count({ where: { texteSocieteId: ts.id } })) + 1,
     );
-    const common = {
-      companyId: user.id,
-      texteId: ts.texteId,
-      multicompte: user.ownerId !== user.id ? user.ownerId : 0,
-      texteSocieteId: ts.id,
-      gestionactionId: ACTION_EN_COURS,
-      gestionetatId: ts.gestionetatId,
-      quifairaction: user.nom,
-      datequifairaction: today,
-      libelleAction: dto.description.trim(),
-      responsableAction: dto.responsable?.trim() || null,
-      telephoneResponsable: dto.telephone?.trim() || null,
-      courrielResponsable: '0',
-      echeant: dto.delai?.trim() || null,
-      dateouverture: toFrenchDate(dto.dateOuverture) ?? toFrenchDate(today.toISOString()),
-      cloture: toFrenchDate(dto.dateCloture),
-      numaction,
-    };
 
     const created = await this.prisma.plusaction.create({
-      data: { ...common, createdAt: today, secteurId: ts.secteurId, themeId: ts.themeId },
+      data: {
+        companyId: user.id,
+        texteId: ts.texteId,
+        multicompte: user.ownerId !== user.id ? user.ownerId : 0,
+        texteSocieteId: ts.id,
+        gestionactionId: status,
+        gestionetatId: ts.gestionetatId,
+        quifairaction: user.nom,
+        datequifairaction: today,
+        libelleAction: dto.description.trim(),
+        responsableAction: dto.responsable?.trim() || null,
+        telephoneResponsable: dto.telephone?.trim() || null,
+        courrielResponsable: String(progress),
+        echeant: dto.delai?.trim() || null,
+        dateouverture: toFrenchDate(dto.dateOuverture) ?? toFrenchDate(today.toISOString()),
+        cloture: toFrenchDate(dto.dateCloture),
+        numaction,
+        createdAt: today,
+        secteurId: ts.secteurId,
+        themeId: ts.themeId,
+      },
     });
-    await this.prisma.historiqueAction.create({
-      data: { ...common, createdAt: today, plusactionId: created.id },
-    });
+    await this.prisma.historiqueAction.create({ data: this.historyRow(user, created) });
+    this.notifier.refresh(user.ownerId!);
     return this.textDetail(user, texteSocieteId);
   }
 
   async updateAction(user: AuthUser, actionId: number, dto: UpdateActionDto) {
-    const action = await this.prisma.plusaction.findUnique({ where: { id: actionId } });
-    if (!action?.texteSocieteId) throw new NotFoundException('Action introuvable');
-    await this.findOwned(user, action.texteSocieteId); // ownership check
+    const { action } = await this.ownedAction(user, actionId);
+    const progress =
+      dto.effectivite !== undefined
+        ? dto.effectivite
+        : dto.gestionactionId === ACTION_EFFICACE
+          ? 100
+          : undefined;
 
-    await this.prisma.plusaction.update({
+    const updated = await this.prisma.plusaction.update({
       where: { id: actionId },
       data: {
+        libelleAction: dto.description !== undefined ? dto.description.trim() : undefined,
+        responsableAction: dto.responsable !== undefined ? dto.responsable.trim() || null : undefined,
+        telephoneResponsable: dto.telephone !== undefined ? dto.telephone.trim() || null : undefined,
+        echeant: dto.delai !== undefined ? dto.delai.trim() || null : undefined,
+        dateouverture: dto.dateOuverture !== undefined ? toFrenchDate(dto.dateOuverture) : undefined,
+        cloture: dto.dateCloture !== undefined ? toFrenchDate(dto.dateCloture ?? undefined) : undefined,
         gestionactionId: dto.gestionactionId ?? undefined,
-        courrielResponsable: dto.effectivite !== undefined ? String(dto.effectivite) : undefined,
-        cloture: dto.dateCloture !== undefined ? toFrenchDate(dto.dateCloture) : undefined,
+        courrielResponsable: progress !== undefined ? String(progress) : undefined,
         quifairaction: user.nom,
         datequifairaction: new Date(),
       },
     });
-    return this.textDetail(user, action.texteSocieteId);
+    await this.prisma.historiqueAction.create({ data: this.historyRow(user, updated) });
+    this.notifier.refresh(user.ownerId!);
+    return this.textDetail(user, action.texteSocieteId!);
+  }
+
+  async deleteAction(user: AuthUser, actionId: number) {
+    const { action } = await this.ownedAction(user, actionId);
+    await this.prisma.$transaction([
+      this.prisma.historiqueAction.deleteMany({ where: { plusactionId: action.id } }),
+      this.prisma.plusaction.delete({ where: { id: action.id } }),
+    ]);
+    this.notifier.refresh(user.ownerId!);
+    return this.textDetail(user, action.texteSocieteId!);
+  }
+
+  async addActionFiles(user: AuthUser, actionId: number, uploads: UploadedFile[]) {
+    if (!uploads?.length) throw new BadRequestException('Aucun fichier reçu');
+    const { action } = await this.ownedAction(user, actionId);
+    const names: string[] = [];
+    for (const f of uploads) names.push(await this.files.saveProof(f));
+    const updated = await this.prisma.plusaction.update({
+      where: { id: action.id },
+      data: { tmpphoto: joinFiles([...splitFiles(action.tmpphoto), ...names]) },
+    });
+    await this.prisma.historiqueAction.create({ data: this.historyRow(user, updated) });
+    return this.textDetail(user, action.texteSocieteId!);
+  }
+
+  async removeActionFile(user: AuthUser, actionId: number, name: string) {
+    const { action } = await this.ownedAction(user, actionId);
+    const current = splitFiles(action.tmpphoto);
+    if (!current.includes(name)) throw new NotFoundException('Fichier introuvable');
+    await this.prisma.plusaction.update({
+      where: { id: action.id },
+      data: { tmpphoto: joinFiles(current.filter((n) => n !== name)) },
+    });
+    await this.files.removeProof(name);
+    return this.textDetail(user, action.texteSocieteId!);
+  }
+
+  // ─── Profile & team ────────────────────────────────────────────────
+
+  async profile(user: AuthUser) {
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const [me, owner, evaluatedThisMonth, openActionsCreated, subscriptions] = await Promise.all([
+      this.prisma.company.findUnique({
+        where: { id: user.id },
+        select: { id: true, nom: true, email: true, fonction: true, tel: true, multicompte: true, createdAt: true },
+      }),
+      this.prisma.company.findUnique({
+        where: { id: user.ownerId! },
+        select: { raisonsociale: true, nom: true },
+      }),
+      this.prisma.historiqueEtat.count({
+        where: { companyId: user.id, datequifairetat: { gte: monthStart } },
+      }),
+      this.prisma.plusaction.count({
+        where: { companyId: user.id, gestionactionId: { in: OPEN_ACTION_STATES } },
+      }),
+      this.prisma.companySecteurTheme.findMany({
+        where: { companyId: user.ownerId! },
+        select: { secteur: { select: { id: true, name: true } } },
+      }),
+    ]);
+    if (!me) throw new NotFoundException('Compte introuvable');
+
+    const secteurs = new Map<number, string>();
+    for (const s of subscriptions) if (s.secteur) secteurs.set(s.secteur.id, s.secteur.name ?? '');
+
+    return {
+      id: me.id,
+      nom: me.nom,
+      email: me.email,
+      fonction: me.fonction,
+      tel: me.tel,
+      company: owner?.raisonsociale || owner?.nom || '',
+      isSubAccount: me.multicompte > 0,
+      canEdit: user.canEdit,
+      memberSince: me.createdAt,
+      stats: { evaluatedThisMonth, openActionsCreated },
+      secteurs: [...secteurs.entries()].map(([id, name]) => ({ id, name })),
+      preferences: this.prefs.get(user.id),
+    };
+  }
+
+  async updateProfile(user: AuthUser, dto: UpdateProfileDto) {
+    await this.prisma.company.update({
+      where: { id: user.id },
+      data: {
+        nom: dto.nom.trim(),
+        fonction: dto.fonction !== undefined ? dto.fonction.trim() || null : undefined,
+        tel: dto.tel !== undefined ? dto.tel.trim() || null : undefined,
+        updatedAt: new Date(),
+      },
+    });
+    return this.profile(user);
+  }
+
+  async changePassword(user: AuthUser, dto: ChangePasswordDto) {
+    const me = await this.prisma.company.findUnique({ where: { id: user.id }, select: { password: true } });
+    if (!me || !(await verifyPassword(me.password, dto.current))) {
+      throw new BadRequestException('Le mot de passe actuel est incorrect.');
+    }
+    if (dto.current === dto.next) {
+      throw new BadRequestException('Le nouveau mot de passe doit être différent de l’actuel.');
+    }
+    await this.prisma.company.update({
+      where: { id: user.id },
+      data: { password: await hashPassword(dto.next), updatedAt: new Date() },
+    });
+    return { ok: true };
+  }
+
+  async updatePreferences(user: AuthUser, dto: PreferencesDto) {
+    const { tourSeen, ...rest } = dto;
+    return this.prefs.update(user.id, {
+      ...rest,
+      ...(tourSeen !== undefined ? { tourSeenAt: tourSeen ? new Date().toISOString() : null } : {}),
+    });
+  }
+
+  async team(user: AuthUser) {
+    const accounts = await this.prisma.company.findMany({
+      where: { OR: [{ id: user.ownerId! }, { multicompte: user.ownerId! }], deleted: false },
+      select: {
+        id: true, nom: true, email: true, fonction: true, multicompte: true,
+        droitacceeId: true, activated: true, createdAt: true,
+      },
+      orderBy: [{ multicompte: 'asc' }, { nom: 'asc' }],
+    });
+    return {
+      members: accounts.map((a) => ({
+        id: a.id,
+        nom: a.nom,
+        email: a.email,
+        fonction: a.fonction,
+        isMain: a.multicompte <= 0,
+        canEdit: canEditFromRights(a.multicompte, a.droitacceeId),
+        active: a.activated,
+        isMe: a.id === user.id,
+        since: a.createdAt,
+      })),
+    };
   }
 
   // ─── Notifications ─────────────────────────────────────────────────
@@ -521,9 +881,7 @@ export class CompanyService {
   // ─── Mapping ───────────────────────────────────────────────────────
 
   private toListItem(
-    ts: Prisma.TexteSocieteGetPayload<{
-      include: { texte: { include: { type: true } }; applicabilite: true; gestionEtat: true };
-    }>,
+    ts: Prisma.TexteSocieteGetPayload<{ include: typeof TEXT_INCLUDE }>,
     secteurName: Map<number, string>,
   ) {
     const t = ts.texte!;
@@ -542,6 +900,7 @@ export class CompanyService {
       assignedAt: ts.createdAt,
       evaluatedAt: ts.datequifairetat,
       evaluatedBy: ts.quifairetat,
+      updatedSinceEvaluation: updatedSince(t.updatedAt, ts.datequifairetat),
     };
   }
 }

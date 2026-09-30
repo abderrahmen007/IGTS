@@ -17,4 +17,16 @@ export class FilesController {
     }
     return res.redirect(302, found.redirect!);
   }
+
+  /** GET /api/files/preuves/:name — proof attached to an action (new or legacy). */
+  @Get('preuves/:name')
+  proof(@Param('name') name: string, @Res() res: Response) {
+    const found = this.files.locateProof(name);
+    if (found.path) {
+      res.setHeader('Content-Disposition', 'inline');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      return res.sendFile(found.path);
+    }
+    return res.redirect(302, found.redirect!);
+  }
 }

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { FilesService, UploadedPdf } from '../files/files.service';
 import { AssignmentService } from './assignment.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { TextDto } from './admin.dto';
 
 @Injectable()
@@ -10,6 +11,7 @@ export class AdminTextsService {
     private prisma: PrismaService,
     private files: FilesService,
     private assignment: AssignmentService,
+    private notifications: NotificationsService,
   ) {}
 
   private async get(id: number) {
@@ -31,7 +33,7 @@ export class AdminTextsService {
     if (!type) throw new BadRequestException('Type de texte introuvable');
   }
 
-  private data(dto: TextDto) {
+  private data(dto: Omit<TextDto, 'notifyCompanies'>) {
     return {
       titre: dto.titre.trim(),
       description: dto.description.trim(),
@@ -116,7 +118,8 @@ export class AdminTextsService {
       where: { id },
       data: { ...this.data(dto), ...(tmpphoto ? { tmpphoto } : {}), updatedAt: new Date() },
     });
-    return this.detail(id);
+    const notified = dto.notifyCompanies ? await this.notifications.notifyTextUpdated(id) : 0;
+    return { ...(await this.detail(id)), notified };
   }
 
   /** Legacy "supprimer": hides the text everywhere but keeps the data. */

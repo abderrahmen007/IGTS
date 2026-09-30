@@ -9,12 +9,14 @@ import { ChatbotModule } from './chatbot/chatbot.module';
 import { ScraperModule } from './scraper/scraper.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { FilesModule } from './files/files.module';
+import { PreferencesModule } from './preferences/preferences.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     PrismaModule,
+    PreferencesModule,
     NotificationsModule,
     FilesModule,
     AuthModule,
