@@ -16,8 +16,16 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
+    /** Parsed response body (e.g. { code: "OPEN_ACTIONS", openActions: 2 }) */
+    public data: unknown = null,
   ) {
     super(message);
+  }
+
+  /** Machine-readable code sent by the API, if any. */
+  get code(): string | null {
+    const d = this.data as { code?: unknown } | null;
+    return d && typeof d.code === "string" ? d.code : null;
   }
 }
 
@@ -76,17 +84,18 @@ export async function api<T>(
         window.location.href = "/login?expired=1";
       }
     }
-    throw new ApiError(messageFrom(data, res.status), res.status);
+    throw new ApiError(messageFrom(data, res.status), res.status, data);
   }
   return data as T;
 }
 
 /** Multipart request (file uploads). */
 export async function apiForm<T>(path: string, method: "POST" | "PATCH", form: FormData): Promise<T> {
+  // Same base as api(): relative "/api" works behind the Next.js proxy
   const session = getSession();
   let res: Response;
   try {
-    res = await fetch(API_URL + path, {
+    res = await fetch(buildUrl(path), {
       method,
       headers: session ? { Authorization: `Bearer ${session.token}` } : {},
       body: form,
@@ -95,6 +104,6 @@ export async function apiForm<T>(path: string, method: "POST" | "PATCH", form: F
     throw new ApiError("Impossible de joindre le serveur. Vérifiez votre connexion.", 0);
   }
   const data = await res.json().catch(() => null);
-  if (!res.ok) throw new ApiError(messageFrom(data, res.status), res.status);
+  if (!res.ok) throw new ApiError(messageFrom(data, res.status), res.status, data);
   return data as T;
 }

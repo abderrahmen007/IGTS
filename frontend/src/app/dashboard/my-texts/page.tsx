@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import {
+  Badge,
   Button,
   Card,
   EmptyState,
@@ -167,13 +168,13 @@ function MyTextsView() {
                   <tr
                     key={t.id}
                     onClick={() => router.push(`/dashboard/my-texts/${t.id}`)}
-                    className="cursor-pointer hover:bg-ink-50"
+                    className="cursor-pointer transition-colors hover:bg-paper"
                   >
                     <td className={cn(td, "max-w-[560px]")}>
                       <Link
                         href={`/dashboard/my-texts/${t.id}`}
                         onClick={(e) => e.stopPropagation()}
-                        className="text-[15px] font-medium text-ink-900 hover:text-brand-700"
+                        className="text-[15px] font-semibold text-ink-900 hover:text-brand-700"
                       >
                         {t.titre}
                       </Link>
@@ -184,7 +185,10 @@ function MyTextsView() {
                     </td>
                     <td className={cn(td, "hidden text-ink-700 lg:table-cell")}>{t.secteur?.name ?? "—"}</td>
                     <td className={td}>
-                      <StatusBadge applicabilite={t.applicabilite} etat={t.etat} />
+                      <span className="flex flex-wrap gap-1.5">
+                        <StatusBadge applicabilite={t.applicabilite} etat={t.etat} />
+                        {t.updatedSinceEvaluation && <Badge tone="info">Mis à jour</Badge>}
+                      </span>
                       {t.actionsCount ? (
                         <p className="mt-1.5 text-xs text-ink-500">
                           {t.actionsCount} action{t.actionsCount > 1 ? "s" : ""}

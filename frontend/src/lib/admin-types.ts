@@ -13,6 +13,8 @@ export interface SubAccount {
   tel: string | null;
   fonction: string | null;
   active: boolean;
+  /** "Tous les droits" (evaluate and act) vs read-only */
+  canEdit: boolean;
   createdAt: string;
 }
 

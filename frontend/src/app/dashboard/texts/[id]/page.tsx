@@ -182,9 +182,15 @@ export default function AdminTextPage() {
             currentPdf={data.pdfUrl}
             submitLabel="Enregistrer les modifications"
             note="Les entreprises qui suivent déjà ce texte voient les modifications immédiatement."
+            showNotify
             onSubmit={async (fd) => {
-              setData(await apiForm<AdminTextDetail>(`/admin/texts/${data.id}`, "PATCH", fd));
-              toast("Texte enregistré.");
+              const saved = await apiForm<AdminTextDetail & { notified?: number }>(`/admin/texts/${data.id}`, "PATCH", fd);
+              setData(saved);
+              toast(
+                saved.notified
+                  ? `Texte enregistré. ${saved.notified} entreprise(s) prévenue(s).`
+                  : "Texte enregistré.",
+              );
             }}
           />
         </div>

@@ -38,7 +38,7 @@ export function Popover({
       {open && (
         <div
           className={cn(
-            "absolute top-full z-40 mt-2 overflow-hidden rounded-lg border border-ink-200 bg-white shadow-[0_8px_24px_-8px_rgba(13,15,28,0.18)]",
+            "animate-[drop_160ms_ease-out] absolute top-full z-40 mt-2 overflow-hidden rounded-2xl border border-ink-200/80 bg-white shadow-[0_18px_40px_-18px_rgba(22,20,43,0.35)]",
             align === "right" ? "right-0" : "left-0",
             className,
           )}

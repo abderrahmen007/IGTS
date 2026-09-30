@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import { Icon } from "./icons";
 import { cn } from "./ui";
 import { api, ApiError } from "@/lib/api";
+import { ASSISTANT_EVENT } from "@/lib/assistant";
 
 interface Message {
   role: "user" | "assistant";
@@ -116,6 +117,21 @@ export function AssistantWidget() {
     }
   };
 
+  // Opened from elsewhere (home tile, text page button)
+  const askRef = useRef(ask);
+  askRef.current = ask;
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const question = (e as CustomEvent<{ question?: string }>).detail?.question;
+      setOpen(true);
+      setTeaser(false);
+      setGreeted(true);
+      if (question) void askRef.current(question);
+    };
+    window.addEventListener(ASSISTANT_EVENT, onOpen);
+    return () => window.removeEventListener(ASSISTANT_EVENT, onOpen);
+  }, []);
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
     void ask(input);
@@ -133,7 +149,7 @@ export function AssistantWidget() {
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col items-end gap-3 p-3 sm:inset-x-auto sm:right-5 sm:bottom-5 sm:p-0">
       {/* Greeting bubble */}
       {teaser && !open && (
-        <div className="animate-[rise_220ms_ease-out] pointer-events-auto relative w-[min(320px,calc(100vw-1.5rem))] rounded-xl border border-ink-200 bg-white p-4 shadow-xl">
+        <div className="glass-strong animate-[pop_300ms_var(--ease-out-soft)] pointer-events-auto relative w-[min(320px,calc(100vw-1.5rem))] rounded-[20px] rounded-br-md p-4">
           <button
             onClick={() => {
               setTeaser(false);
@@ -150,7 +166,7 @@ export function AssistantWidget() {
           </p>
           <button
             onClick={openPanel}
-            className="mt-3 inline-flex h-9 items-center gap-2 rounded-md bg-brand-800 px-4 text-sm font-medium text-white hover:bg-brand-700"
+            className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-brand-800 px-4 text-sm font-semibold text-white hover:bg-brand-700"
           >
             Poser une question
           </button>
@@ -162,14 +178,14 @@ export function AssistantWidget() {
         <section
           role="dialog"
           aria-label="Assistant juridique"
-          className="animate-[rise_200ms_ease-out] pointer-events-auto flex h-[min(620px,calc(100dvh-5.5rem))] w-full flex-col overflow-hidden rounded-xl border border-ink-200 bg-white shadow-2xl sm:w-[400px]"
+          className="glass-strong animate-[pop_260ms_var(--ease-out-soft)] pointer-events-auto flex h-[min(620px,calc(100dvh-5.5rem))] w-full flex-col overflow-hidden rounded-[22px] sm:w-[400px]"
         >
-          <header className="flex items-center gap-3 bg-brand-900 px-4 py-3 text-white">
+          <header className="zellige flex items-center gap-3 bg-brand-800 px-4 py-3 text-white">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10">
-              <Icon name="message" size={17} />
+              <Icon name="sparkle" size={17} />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-semibold leading-tight">Assistant juridique</p>
+              <p className="text-[15px] font-semibold leading-tight">Assistant IGTS</p>
               <p className="text-xs text-white/65">Répond à partir de vos textes</p>
             </div>
             {messages.length > 0 && (
@@ -202,7 +218,7 @@ export function AssistantWidget() {
                     <button
                       key={s}
                       onClick={() => void ask(s)}
-                      className="block w-full rounded-lg border border-ink-200 px-3.5 py-2.5 text-left text-sm text-ink-700 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-800"
+                      className="block w-full rounded-xl border border-ink-200 bg-white/70 px-3.5 py-2.5 text-left text-sm text-ink-700 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-800"
                     >
                       {s}
                     </button>
@@ -257,8 +273,8 @@ export function AssistantWidget() {
             )}
           </div>
 
-          <form onSubmit={submit} className="border-t border-ink-150 p-3">
-            <div className="flex items-end gap-2 rounded-lg border border-ink-200 px-3 py-2 focus-within:border-brand-600 focus-within:ring-2 focus-within:ring-brand-100">
+          <form onSubmit={submit} className="border-t border-ink-150 bg-white/60 p-3">
+            <div className="flex items-end gap-2 rounded-xl border border-ink-200 bg-white px-3 py-2 focus-within:border-brand-600 focus-within:ring-4 focus-within:ring-brand-100">
               <textarea
                 ref={inputRef}
                 value={input}
@@ -274,7 +290,7 @@ export function AssistantWidget() {
                 type="submit"
                 disabled={input.trim().length < 3 || loading}
                 aria-label="Envoyer"
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-800 text-white hover:bg-brand-700 disabled:opacity-40"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-800 text-white hover:bg-brand-700 disabled:opacity-40"
               >
                 <Icon name="send" size={14} />
               </button>
@@ -288,10 +304,11 @@ export function AssistantWidget() {
       {!open && (
         <button
           onClick={openPanel}
-          className="pointer-events-auto inline-flex h-12 items-center gap-2 self-end rounded-full bg-brand-800 pl-4 pr-5 text-sm font-medium text-white shadow-lg shadow-brand-900/25 transition-transform hover:scale-[1.03] hover:bg-brand-700 active:scale-100"
-          aria-label="Ouvrir l’assistant juridique"
+          data-tour="assistant"
+          className="gem lift pointer-events-auto inline-flex h-14 items-center gap-2.5 self-end rounded-full bg-brand-800 pl-5 pr-6 text-sm font-semibold text-white"
+          aria-label="Ouvrir l’assistant IGTS"
         >
-          <Icon name="message" size={18} />
+          <Icon name="sparkle" size={20} />
           <span>{textId ? "Une question sur ce texte ?" : "Une question ?"}</span>
         </button>
       )}

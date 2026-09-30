@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import { IBM_Plex_Mono, IBM_Plex_Sans, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 
 const plexSans = IBM_Plex_Sans({
@@ -14,6 +14,13 @@ const plexMono = IBM_Plex_Mono({
   weight: ["400", "500"],
 });
 
+/** Titles and legal text: the tone of the Journal officiel. */
+const sourceSerif = Source_Serif_4({
+  variable: "--font-source-serif",
+  subsets: ["latin", "latin-ext"],
+  axes: ["opsz"],
+});
+
 export const metadata: Metadata = {
   title: {
     default: "IGTS Veille",
@@ -24,7 +31,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fr" className={`${plexSans.variable} ${plexMono.variable} h-full antialiased`}>
+    <html
+      lang="fr"
+      className={`${plexSans.variable} ${plexMono.variable} ${sourceSerif.variable} h-full antialiased`}
+    >
       <body className="min-h-full">{children}</body>
     </html>
   );

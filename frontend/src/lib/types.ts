@@ -31,6 +31,8 @@ export interface TextListItem {
   assignedAt: string | null;
   evaluatedAt: string | null;
   evaluatedBy: string | null;
+  /** IGTS changed the text after the company's last evaluation */
+  updatedSinceEvaluation?: boolean;
   actionsCount?: number;
 }
 
@@ -42,11 +44,38 @@ export interface Paginated<T> {
   pageCount: number;
 }
 
+export interface UpcomingAction {
+  id: number;
+  texteSocieteId: number | null;
+  description: string;
+  responsable: string | null;
+  dateCloture: string | null;
+  dueIn: number | null;
+  texteTitre: string;
+  theme: string | null;
+}
+
 export interface CompanyOverview {
   company: { nom?: string; raisonsociale?: string | null; lastLogin?: string | null };
-  stats: ComplianceStats & { openActions: number; unreadNotifications: number };
+  me: { nom: string; canEdit: boolean };
+  stats: ComplianceStats & {
+    openActions: number;
+    overdueActions: number;
+    /** Non-compliant texts that have no action yet */
+    nonConformeSansAction: number;
+    unreadNotifications: number;
+  };
   bySecteur: (ComplianceStats & { id: number; name: string })[];
   recentTexts: TextListItem[];
+  nextToEvaluate: TextListItem[];
+  upcomingActions: UpcomingAction[];
+}
+
+export interface Counters {
+  toEvaluate: number;
+  overdueActions: number;
+  openActions: number;
+  unreadNotifications: number;
 }
 
 export interface CompanyFilters {
@@ -57,20 +86,39 @@ export interface CompanyFilters {
   actionStates: Ref[];
 }
 
+export interface ActionFile {
+  name: string;
+  url: string;
+}
+
 export interface ActionPlan {
   id: number;
   texteSocieteId: number | null;
+  number: string | null;
   description: string;
   responsable: string | null;
   telephone: string | null;
   delai: string | null;
   dateOuverture: string | null;
   dateCloture: string | null;
+  /** Days until the planned closing date (negative = late) */
+  dueIn: number | null;
   effectivite: number | null;
   status: Ref | null;
+  files: ActionFile[];
   createdAt: string | null;
   createdBy: string | null;
-  texteTitre?: string;
+  updatedAt: string | null;
+  /** The text no longer calls for action: kept, but paused */
+  onHold?: boolean;
+  texte?: {
+    titre: string;
+    num: string;
+    type: string | null;
+    secteur: string | null;
+    theme: string | null;
+    compliant: boolean;
+  };
 }
 
 export interface TextDetail {
@@ -87,6 +135,7 @@ export interface TextDetail {
     secteur: Ref | null;
     pdfUrl: string | null;
     addedAt: string | null;
+    updatedAt: string | null;
   };
   assignedAt: string | null;
   applicabilite: Ref;
@@ -94,6 +143,10 @@ export interface TextDetail {
   comment: string | null;
   evaluatedAt: string | null;
   evaluatedBy: string | null;
+  updatedSinceEvaluation: boolean;
+  permissions: { canEdit: boolean; actionsAllowed: boolean; actionBlockReason: string | null };
+  /** Every action is effective: propose to mark the text compliant */
+  suggestCompliance: boolean;
   history: { id: number; date: string | null; by: string | null; etat: string | null; applicabilite: string | null }[];
   actions: ActionPlan[];
   options: { applicabilites: Ref[]; etats: Ref[]; actionStates: Ref[] };
@@ -101,8 +154,51 @@ export interface TextDetail {
 
 export interface ActionsResponse {
   items: ActionPlan[];
-  counts: { total: number; byStatus: (Ref & { count: number })[] };
+  counts: {
+    total: number;
+    open: number;
+    overdue: number;
+    /** Open actions paused because their text no longer calls for action */
+    onHold: number;
+    byStatus: (Ref & { count: number })[];
+    averageProgress: number | null;
+  };
+  readyForCompliance: { texteSocieteId: number; titre: string }[];
   actionStates: Ref[];
+  canEdit: boolean;
+}
+
+export interface Preferences {
+  emailNewTexts: boolean;
+  emailReminders: boolean;
+  tourSeenAt: string | null;
+}
+
+export interface Profile {
+  id: number;
+  nom: string;
+  email: string;
+  fonction: string | null;
+  tel: string | null;
+  company: string;
+  isSubAccount: boolean;
+  canEdit: boolean;
+  memberSince: string | null;
+  stats: { evaluatedThisMonth: number; openActionsCreated: number };
+  secteurs: Ref[];
+  preferences: Preferences;
+}
+
+export interface TeamMember {
+  id: number;
+  nom: string;
+  email: string;
+  fonction: string | null;
+  isMain: boolean;
+  canEdit: boolean;
+  active: boolean;
+  isMe: boolean;
+  since: string | null;
 }
 
 export interface NotificationsResponse {

@@ -33,7 +33,9 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const [version, setVersion] = useState(0);
   const [connected, setConnected] = useState(false);
   const toastRef = useRef(toast);
-  toastRef.current = toast;
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
 
   const reload = useCallback(() => {
     api<NotificationsResponse>("/company/notifications").then(setNotifications).catch(() => undefined);

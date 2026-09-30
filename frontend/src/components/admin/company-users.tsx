@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Modal, useConfirm, useToast } from "../overlay";
-import { Badge, Button, Card, CardHeader, EmptyState, Field, Input, cn, td, th } from "../ui";
+import { Badge, Button, Card, CardHeader, EmptyState, Field, Input, Toggle, cn, td, th } from "../ui";
 import { FormError, PasswordField } from "./fields";
 import { api, ApiError } from "@/lib/api";
 import { formatDate } from "@/lib/format";
@@ -13,6 +13,7 @@ interface UserForm {
   email: string;
   tel: string;
   fonction: string;
+  canEdit: boolean;
 }
 
 /** Password reset for any client account (main or sub-account). */
@@ -93,6 +94,7 @@ function UserModal({
     email: user?.email ?? "",
     tel: user?.tel ?? "",
     fonction: user?.fonction ?? "",
+    canEdit: user?.canEdit ?? false,
   }));
   const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
@@ -148,6 +150,15 @@ function UserModal({
           <Field label="Téléphone" htmlFor="u-tel">
             <Input id="u-tel" inputMode="tel" value={form.tel} onChange={set("tel")} />
           </Field>
+        </div>
+        <div className="flex items-center gap-4 rounded-xl bg-paper px-4 py-3">
+          <span className="flex-1">
+            <span className="block text-sm font-semibold text-ink-900">Peut évaluer et créer des actions</span>
+            <span className="block text-[12.5px] text-ink-600">
+              Sinon, accès en lecture seule (comme « droit vide » dans l’ancienne plateforme).
+            </span>
+          </span>
+          <Toggle label="Peut évaluer et créer des actions" checked={form.canEdit} onChange={(v) => setForm({ ...form, canEdit: v })} />
         </div>
         {!user && <PasswordField value={password} onChange={setPassword} />}
       </form>
@@ -249,7 +260,10 @@ export function CompanyUsers({ detail, onChange }: { detail: CompanyDetail; onCh
                   </p>
                 </td>
                 <td className={td}>
-                  <Badge tone={u.active ? "ok" : "neutral"}>{u.active ? "Actif" : "Désactivé"}</Badge>
+                  <span className="flex flex-wrap gap-1.5">
+                    <Badge tone={u.active ? "ok" : "neutral"}>{u.active ? "Actif" : "Désactivé"}</Badge>
+                    <Badge tone={u.canEdit ? "brand" : "neutral"}>{u.canEdit ? "Éditeur" : "Lecture seule"}</Badge>
+                  </span>
                 </td>
                 <td className={cn(td, "whitespace-nowrap text-right")}>
                   <Button variant="ghost" size="sm" onClick={() => setEditing(u)}>

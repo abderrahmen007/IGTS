@@ -9,6 +9,8 @@ export interface SessionUser {
   raisonsociale?: string | null;
   fonction?: string | null;
   isSubAccount?: boolean;
+  /** False for read-only sub-accounts (older sessions may not have it) */
+  canEdit?: boolean;
 }
 
 export interface Session {

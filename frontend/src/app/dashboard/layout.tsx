@@ -7,12 +7,31 @@ import { Topbar } from "@/components/shell/topbar";
 import { SessionContext } from "@/components/session-context";
 import { OverlayProvider } from "@/components/overlay";
 import { LiveProvider } from "@/components/live-context";
+import { MeProvider } from "@/components/me-context";
+import { TourProvider } from "@/components/tour";
 import { AssistantWidget } from "@/components/assistant-widget";
 import { Spinner } from "@/components/ui";
 import { getSession, type SessionUser } from "@/lib/session";
 
 const ADMIN_ONLY = ["/dashboard/companies", "/dashboard/texts", "/dashboard/referentiel", "/dashboard/admins"];
-const COMPANY_ONLY = ["/dashboard/my-texts", "/dashboard/evaluations", "/dashboard/actions"];
+const COMPANY_ONLY = [
+  "/dashboard/my-texts",
+  "/dashboard/evaluations",
+  "/dashboard/actions",
+  "/dashboard/profile",
+  "/dashboard/team",
+];
+
+/** Soft IGTS-coloured halos behind the glass (the ring of the logo, saffron, sky). */
+function Halos() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+      <div className="absolute -right-36 -top-52 h-[640px] w-[640px] rounded-full border-[120px] border-brand-600 opacity-30 blur-[46px]" />
+      <div className="absolute left-[12%] top-[38%] h-[440px] w-[440px] rounded-full bg-saffron-500 opacity-[0.2] blur-[90px]" />
+      <div className="absolute -bottom-40 right-[18%] h-[520px] w-[520px] rounded-full bg-[#8fa8e0] opacity-30 blur-[100px]" />
+    </div>
+  );
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -48,25 +67,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const shell = (
-    <div className="min-h-screen lg:pl-60">
-      {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 lg:block">
-        <Sidebar type={user.type} />
+    <div className="relative isolate min-h-screen lg:pl-[256px]">
+      <Halos />
+      {/* Desktop sidebar: floating glass panel */}
+      <aside className="fixed inset-y-3 left-3 z-40 hidden w-[244px] lg:block">
+        <Sidebar user={user} />
       </aside>
 
       {/* Mobile drawer */}
       {menuOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
-          <div className="animate-[fade_150ms_ease-out] absolute inset-0 bg-ink-950/40" onClick={() => setMenuOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-72 shadow-xl">
-            <Sidebar type={user.type} onNavigate={() => setMenuOpen(false)} />
+        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+          <div
+            className="animate-[fade_150ms_ease-out] absolute inset-0 bg-ink-950/40"
+            onClick={() => setMenuOpen(false)}
+          />
+          <aside className="animate-[rise_200ms_ease-out] absolute inset-y-3 left-3 w-[280px]">
+            <Sidebar user={user} onNavigate={() => setMenuOpen(false)} />
           </aside>
         </div>
       )}
 
       <div className="flex min-h-screen flex-col">
         <Topbar user={user} onMenu={() => setMenuOpen(true)} />
-        <main className="mx-auto w-full max-w-[1280px] flex-1 px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:py-8">{children}</main>
+        <main className="mx-auto w-full max-w-[1240px] flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:pt-8">{children}</main>
       </div>
     </div>
   );
@@ -76,8 +99,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <OverlayProvider>
         {user.type === "company" ? (
           <LiveProvider>
-            {shell}
-            <AssistantWidget />
+            <MeProvider>
+              <TourProvider>
+                {shell}
+                <AssistantWidget />
+              </TourProvider>
+            </MeProvider>
           </LiveProvider>
         ) : (
           shell

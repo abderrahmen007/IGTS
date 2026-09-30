@@ -37,16 +37,20 @@ export function TextForm({
   submitLabel,
   onSubmit,
   note,
+  showNotify,
 }: {
   initial: TextFormValue;
   currentPdf?: string | null;
   submitLabel: string;
   onSubmit: (form: FormData) => Promise<void>;
   note?: string;
+  /** Editing an existing text: offer to notify the companies that follow it */
+  showNotify?: boolean;
 }) {
   const { data: ref } = useApi<ReferenceData>("/admin/reference");
   const [v, setV] = useState(initial);
   const [pdf, setPdf] = useState<File | null>(null);
+  const [notify, setNotify] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -64,6 +68,7 @@ export function TextForm({
     const fd = new FormData();
     for (const [k, val] of Object.entries(v)) fd.append(k, val);
     if (pdf) fd.append("pdf", pdf);
+    if (showNotify) fd.append("notifyCompanies", String(notify));
     setSaving(true);
     try {
       await onSubmit(fd);
@@ -161,7 +166,19 @@ export function TextForm({
           </div>
         </div>
         <div className="flex flex-col gap-3 border-t border-ink-150 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[13px] text-ink-500">{note}</p>
+          {showNotify ? (
+            <label className="flex items-center gap-2.5 text-[13.5px] text-ink-700">
+              <input
+                type="checkbox"
+                checked={notify}
+                onChange={(e) => setNotify(e.target.checked)}
+                className="h-4 w-4 accent-[var(--color-brand-800)]"
+              />
+              Prévenir les entreprises qui suivent ce texte
+            </label>
+          ) : (
+            <p className="text-[13px] text-ink-500">{note}</p>
+          )}
           <Button type="submit" loading={saving}>
             {submitLabel}
           </Button>

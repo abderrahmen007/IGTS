@@ -45,18 +45,22 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-white">
+    <div className="relative isolate flex min-h-screen overflow-hidden bg-paper">
       {/* Brand panel */}
-      <aside className="relative hidden w-[44%] max-w-[620px] flex-col justify-between bg-brand-900 p-12 text-white lg:flex">
+      <aside className="zellige relative hidden w-[44%] max-w-[620px] flex-col justify-between overflow-hidden bg-brand-800 p-12 text-white lg:flex">
+        <div
+          aria-hidden="true"
+          className="absolute -bottom-32 -right-24 h-[420px] w-[420px] rounded-full border-[70px] border-saffron-500 opacity-40 blur-[40px]"
+        />
         <Image src="/brand/igts-veille-white.png" alt="IGTS Veille" width={148} height={103} loading="eager" />
 
-        <div className="max-w-md">
-          <h1 className="text-[28px] font-semibold leading-tight tracking-tight">
+        <div className="relative max-w-md">
+          <h1 className="font-serif text-[34px] font-semibold leading-tight">
             Veille réglementaire
             <br />
             santé, sécurité, environnement.
           </h1>
-          <p className="mt-4 text-[15px] leading-relaxed text-white/70">
+          <p className="mt-4 text-[15px] leading-relaxed text-brand-100">
             Retrouvez les textes applicables à votre activité, évaluez votre conformité et suivez vos plans
             d’action, au même endroit.
           </p>
@@ -69,20 +73,24 @@ export default function LoginPage() {
             ].map(([k, v]) => (
               <div key={k}>
                 <dt className="text-sm font-semibold">{k}</dt>
-                <dd className="mt-1 text-[13px] leading-snug text-white/60">{v}</dd>
+                <dd className="mt-1 text-[13px] leading-snug text-brand-100/80">{v}</dd>
               </div>
             ))}
           </dl>
         </div>
 
-        <p className="text-xs text-white/45">
+        <p className="relative text-xs text-brand-100/70">
           © {new Date().getFullYear()} IGTS — International Gold Training &amp; Services
         </p>
       </aside>
 
       {/* Form */}
-      <main className="flex flex-1 items-center justify-center px-5 py-12 sm:px-10">
-        <div className="w-full max-w-[380px]">
+      <main className="relative flex flex-1 items-center justify-center px-5 py-12 sm:px-10">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute -right-40 -top-48 h-[560px] w-[560px] rounded-full border-[110px] border-brand-600 opacity-25 blur-[46px]" />
+          <div className="absolute -bottom-40 left-10 h-[420px] w-[420px] rounded-full bg-saffron-500 opacity-20 blur-[90px]" />
+        </div>
+        <div className="glass w-full max-w-[420px] rounded-[26px] px-7 py-9 sm:px-9">
           <Image
             src="/brand/igts-veille.png"
             alt="IGTS Veille"
@@ -92,13 +100,13 @@ export default function LoginPage() {
             className="mb-10 lg:hidden"
           />
 
-          <h2 className="text-2xl font-semibold tracking-tight text-ink-950">Connexion</h2>
+          <h2 className="font-serif text-[30px] font-semibold text-ink-900">Connexion</h2>
           <p className="mt-1.5 text-sm text-ink-600">Accédez à votre espace de veille.</p>
 
           <div
             role="tablist"
             aria-label="Type de compte"
-            className="mt-8 grid grid-cols-2 rounded-md border border-ink-200 bg-ink-50 p-0.5"
+            className="mt-7 grid grid-cols-2 rounded-xl bg-ink-100 p-1"
           >
             {(
               [
@@ -116,8 +124,8 @@ export default function LoginPage() {
                   setError(null);
                 }}
                 className={cn(
-                  "h-8 rounded-[5px] text-[13px] font-medium transition-colors",
-                  type === value ? "bg-white text-ink-900 shadow-sm ring-1 ring-ink-200" : "text-ink-600 hover:text-ink-900",
+                  "h-9 rounded-[9px] text-[13px] font-semibold transition-colors",
+                  type === value ? "bg-white text-ink-900 shadow-[0_1px_2px_rgb(22_20_43/0.12)]" : "text-ink-600 hover:text-ink-900",
                 )}
               >
                 {label}
@@ -130,7 +138,7 @@ export default function LoginPage() {
               <div
                 role="alert"
                 className={cn(
-                  "flex items-start gap-2.5 rounded-md border px-3 py-2.5 text-[13px]",
+                  "flex items-start gap-2.5 rounded-xl border px-3 py-2.5 text-[13px]",
                   error ? "border-bad-100 bg-bad-50 text-bad-700" : "border-info-100 bg-info-50 text-info-700",
                 )}
               >
@@ -173,12 +181,12 @@ export default function LoginPage() {
               </div>
             </Field>
 
-            <Button type="submit" loading={loading} disabled={!email || !password} className="h-10 w-full">
+            <Button type="submit" size="lg" loading={loading} disabled={!email || !password} className="w-full">
               Se connecter
             </Button>
           </form>
 
-          <p className="mt-8 border-t border-ink-150 pt-6 text-[13px] leading-relaxed text-ink-500">
+          <p className="mt-7 border-t border-ink-150 pt-5 text-[13px] leading-relaxed text-ink-500">
             Mot de passe oublié ou accès à créer ? Contactez votre conseiller IGTS.
           </p>
         </div>

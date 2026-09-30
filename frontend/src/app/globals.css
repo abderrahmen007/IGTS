@@ -1,64 +1,87 @@
 @import "tailwindcss";
 
 /*
- * IGTS Veille — design tokens
- * Brand: IGTS indigo (#1C076C, from the logo). Neutrals are cool greys with a
- * hint of indigo so the palette reads as one family. Status colours are muted
- * and always paired with a label, never used as the only signal.
+ * IGTS Veille — design tokens (v2)
+ * Brand: IGTS indigo (#1C076C, from the logo) + saffron for "the next step".
+ * Ground: warm paper instead of cold grey. Status colours are always paired
+ * with a label, never used as the only signal. Glass is reserved for
+ * navigation, key services and floating elements — never under legal text.
  */
 @theme {
   --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-source-serif), Georgia, "Times New Roman", serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  --color-paper: #f6f4ef;
 
   --color-brand-950: #0e0638;
   --color-brand-900: #150a52;
   --color-brand-800: #1c076c;
   --color-brand-700: #2b1a8c;
-  --color-brand-600: #3d2fb0;
+  --color-brand-600: #3b2ba8;
   --color-brand-500: #5a4fd0;
   --color-brand-200: #d4d1f2;
-  --color-brand-100: #e9e7f8;
-  --color-brand-50: #f4f3fc;
+  --color-brand-100: #e6e3f7;
+  --color-brand-50: #eeecf9;
 
-  --color-ink-950: #0d0f1c;
-  --color-ink-900: #171a2b;
-  --color-ink-800: #2a2d40;
-  --color-ink-700: #414458;
-  --color-ink-600: #5a5d72;
-  --color-ink-500: #74778b;
-  --color-ink-400: #9699aa;
-  --color-ink-300: #c3c5d0;
-  --color-ink-200: #dfe0e7;
-  --color-ink-150: #e8e9ee;
-  --color-ink-100: #f0f1f4;
-  --color-ink-50: #f7f7f9;
+  /* Warm neutrals with a hint of indigo in the darks */
+  --color-ink-950: #0f0d22;
+  --color-ink-900: #16142b;
+  --color-ink-800: #26243b;
+  --color-ink-700: #3a3852;
+  --color-ink-600: #47455e;
+  --color-ink-500: #66647c;
+  --color-ink-400: #8c8aa0;
+  --color-ink-300: #c9c6d3;
+  --color-ink-200: #e1ddd2;
+  --color-ink-150: #ebe8df;
+  --color-ink-100: #efece4;
+  --color-ink-50: #f8f7f3;
 
-  --color-ok-700: #17663f;
-  --color-ok-600: #1f7a4d;
-  --color-ok-100: #dcf0e5;
-  --color-ok-50: #eef8f2;
+  /* Saffron: "à évaluer", the next step */
+  --color-saffron-700: #8a5300;
+  --color-saffron-600: #b87a1c;
+  --color-saffron-500: #e3a33b;
+  --color-saffron-300: #f3c77a;
+  --color-saffron-100: #fbf0dc;
+  --color-saffron-50: #fdf8ee;
 
+  /* Coral: "à mettre en règle", late actions */
+  --color-coral-700: #a33f12;
+  --color-coral-600: #d9622b;
+  --color-coral-300: #f4b39a;
+  --color-coral-100: #fbe6da;
+  --color-coral-50: #fdf3ed;
+
+  --color-ok-700: #16663f;
+  --color-ok-600: #2e9a62;
+  --color-ok-100: #e1f1e7;
+  --color-ok-50: #eff8f2;
+
+  /* Errors and destructive actions */
   --color-bad-700: #9f1f16;
   --color-bad-600: #b42318;
   --color-bad-100: #fbe0dd;
   --color-bad-50: #fdf1ef;
 
-  --color-warn-700: #85560a;
-  --color-warn-600: #a86b06;
-  --color-warn-100: #faecc8;
-  --color-warn-50: #fdf7e7;
+  --color-warn-700: #8a5300;
+  --color-warn-600: #b87a1c;
+  --color-warn-100: #fbf0dc;
+  --color-warn-50: #fdf8ee;
 
-  --color-info-700: #2c4a78;
-  --color-info-600: #3a5d92;
-  --color-info-100: #dfe8f5;
+  --color-info-700: #2c4f86;
+  --color-info-600: #4c74b8;
+  --color-info-100: #e2eaf6;
   --color-info-50: #f0f4fa;
 
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
 
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
+
+  --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @layer base {
@@ -66,12 +89,13 @@
     -webkit-text-size-adjust: 100%;
   }
   body {
-    background: var(--color-ink-50);
+    background: var(--color-paper);
     color: var(--color-ink-900);
     font-family: var(--font-sans);
     font-size: 0.875rem;
     line-height: 1.5;
     font-feature-settings: "kern", "liga";
+    -webkit-font-smoothing: antialiased;
   }
   ::selection {
     background: var(--color-brand-100);
@@ -94,6 +118,53 @@
   }
 }
 
+/* Frosted glass with a light sheen on the top edge */
+@utility glass {
+  background: linear-gradient(145deg, rgb(255 255 255 / 0.8) 0%, rgb(255 255 255 / 0.5) 48%, rgb(255 255 255 / 0.65) 100%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgb(255 255 255 / 0.85);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    inset 0 -1px 0 rgb(28 7 108 / 0.05),
+    0 14px 34px -16px rgb(28 7 108 / 0.3);
+}
+/* Denser glass for panels that hold text (tour, popovers) */
+@utility glass-strong {
+  background: linear-gradient(145deg, rgb(255 255 255 / 0.94) 0%, rgb(255 255 255 / 0.8) 55%, rgb(255 255 255 / 0.9) 100%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgb(255 255 255 / 0.9);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 30px 60px -24px rgb(8 4 40 / 0.45);
+}
+/* Glossy icon tile ("gem") used for key services */
+@utility gem {
+  box-shadow:
+    inset 0 1px 1px rgb(255 255 255 / 0.6),
+    inset 0 -8px 14px rgb(0 0 0 / 0.14),
+    0 8px 18px -8px rgb(28 7 108 / 0.55);
+  background-image: radial-gradient(circle at 30% 22%, rgb(255 255 255 / 0.5), rgb(255 255 255 / 0) 52%);
+}
+/* Cards that react to the pointer */
+@utility lift {
+  transition:
+    transform 220ms var(--ease-out-soft),
+    box-shadow 220ms var(--ease-out-soft);
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 20px 40px -18px rgb(28 7 108 / 0.42);
+  }
+  &:active {
+    transform: translateY(-1px);
+  }
+}
+/* Discreet zellige-inspired pattern (next-step card, login) */
+@utility zellige {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56'%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.09' stroke-width='1.2'%3E%3Crect x='17' y='17' width='22' height='22'/%3E%3Crect x='17' y='17' width='22' height='22' transform='rotate(45 28 28)'/%3E%3Ccircle cx='28' cy='28' r='4.5'/%3E%3Cpath d='M0 0l11 11M56 0L45 11M0 56l11-11M56 56L45 45'/%3E%3C/g%3E%3C/svg%3E");
+}
+
 @keyframes fade {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -105,6 +176,17 @@
 @keyframes drop {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pop {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ringfill {
+  from { stroke-dasharray: 0 1000; }
+}
+@keyframes livedot {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(46 154 98 / 0.45); }
+  50% { box-shadow: 0 0 0 6px rgb(46 154 98 / 0); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }

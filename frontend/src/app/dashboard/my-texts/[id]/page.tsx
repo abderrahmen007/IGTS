@@ -1,65 +1,53 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
-import {
-  Button,
-  Card,
-  CardHeader,
-  EmptyState,
-  ErrorState,
-  Field,
-  Input,
-  LinkButton,
-  PageHeader,
-  Select,
-  Skeleton,
-  Textarea,
-  cn,
-} from "@/components/ui";
-import { StatusBadge } from "@/components/status-badge";
-import { APPLICABILITY_CHOICES, BigChoice, COMPLIANCE_CHOICES } from "@/components/big-choice";
-import { useToast } from "@/components/overlay";
+import { useParams, useRouter } from "next/navigation";
+import { useState, type FormEvent } from "react";
+import { ActionCard, ActionEditor } from "@/components/actions";
+import { EvaluationPanel } from "@/components/evaluation-panel";
+import { TextReader } from "@/components/text-reader";
 import { Icon } from "@/components/icons";
+import { Modal, useToast } from "@/components/overlay";
+import { useLive } from "@/components/live-context";
+import { Button, ErrorState, Field, Input, LockedNote, PageHeader, Skeleton, Textarea, cn } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
-import { formatDate } from "@/lib/format";
-import type { ActionPlan, Ref, TextDetail } from "@/lib/types";
+import { formatDate, plural } from "@/lib/format";
+import { APPLICABLE, CONFORME, statusFromIds } from "@/lib/status";
+import type { ActionPlan, TextDetail } from "@/lib/types";
 
-// ─── Evaluation panel ────────────────────────────────────────────────
-
-function EvaluationPanel({ detail, onSaved }: { detail: TextDetail; onSaved: (d: TextDetail) => void }) {
+function NewActionModal({
+  detail,
+  open,
+  onClose,
+  onSaved,
+}: {
+  detail: TextDetail;
+  open: boolean;
+  onClose: () => void;
+  onSaved: (d: TextDetail) => void;
+}) {
   const toast = useToast();
-  const [applicabiliteId, setApplicabiliteId] = useState<number>(detail.applicabilite.id);
-  const [etatId, setEtatId] = useState<number | null>(detail.etat?.id ?? null);
-  const [comment, setComment] = useState(detail.comment ?? "");
+  const [form, setForm] = useState({ description: "", responsable: "", telephone: "", dateCloture: "" });
   const [saving, setSaving] = useState(false);
+  const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
 
-  useEffect(() => {
-    setApplicabiliteId(detail.applicabilite.id);
-    setEtatId(detail.etat?.id ?? null);
-    setComment(detail.comment ?? "");
-  }, [detail]);
-
-  const dirty =
-    applicabiliteId !== detail.applicabilite.id ||
-    (applicabiliteId === 1 && etatId !== (detail.etat?.id ?? null)) ||
-    comment !== (detail.comment ?? "");
-
-  const save = async (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const updated = await api<TextDetail>(`/company/texts/${detail.id}/evaluation`, {
-        method: "PATCH",
-        body: { applicabiliteId, gestionetatId: applicabiliteId === 1 ? etatId : null, comment },
+      const d = await api<TextDetail>(`/company/texts/${detail.id}/actions`, {
+        method: "POST",
+        body: {
+          description: form.description,
+          responsable: form.responsable || undefined,
+          telephone: form.telephone || undefined,
+          dateCloture: form.dateCloture || undefined,
+        },
       });
-      onSaved(updated);
-      toast(
-        updated.etat?.id === 2
-          ? "Évaluation enregistrée. Pensez à ajouter une action pour vous mettre en règle."
-          : "Évaluation enregistrée.",
-      );
+      onSaved(d);
+      toast("Action ajoutée à votre plan d’action.");
+      setForm({ description: "", responsable: "", telephone: "", dateCloture: "" });
+      onClose();
     } catch (err) {
       toast(err instanceof ApiError ? err.message : "Enregistrement impossible.", "error");
     } finally {
@@ -68,231 +56,194 @@ function EvaluationPanel({ detail, onSaved }: { detail: TextDetail; onSaved: (d:
   };
 
   return (
-    <Card>
-      <CardHeader title="Votre évaluation" actions={<StatusBadge applicabilite={detail.applicabilite} etat={detail.etat} />} />
-      <form onSubmit={save} className="space-y-6 px-5 py-5">
-        <div>
-          <p className="mb-3 text-[15px] font-semibold text-ink-900">Ce texte concerne-t-il votre entreprise ?</p>
-          <BigChoice columns={1} options={APPLICABILITY_CHOICES} value={applicabiliteId} onChoose={setApplicabiliteId} />
-        </div>
-
-        {applicabiliteId === 1 && (
-          <div className="animate-[rise_180ms_ease-out]">
-            <p className="mb-3 text-[15px] font-semibold text-ink-900">Êtes-vous en règle avec ce texte ?</p>
-            <BigChoice columns={1} options={COMPLIANCE_CHOICES} value={etatId} onChoose={setEtatId} />
-          </div>
-        )}
-
-        <Field label="Remarque (facultatif)" htmlFor="comment" hint="Preuves disponibles, points d’attention…">
-          <Textarea id="comment" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} maxLength={2000} />
-        </Field>
-
-        <div className="flex items-center justify-between gap-3 border-t border-ink-150 pt-4">
-          <p className="text-xs text-ink-500">
-            {detail.evaluatedAt
-              ? `Évalué le ${formatDate(detail.evaluatedAt)}${detail.evaluatedBy ? ` par ${detail.evaluatedBy}` : ""}`
-              : "Pas encore évalué"}
-          </p>
-          <Button type="submit" loading={saving} disabled={!dirty} className="h-10 px-5">
-            Enregistrer
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Nouvelle action"
+      description="Ce qu’il faut faire, qui s’en charge et pour quand."
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Annuler
           </Button>
+          <Button type="submit" form="new-action" loading={saving}>
+            Ajouter l’action
+          </Button>
+        </>
+      }
+    >
+      <form id="new-action" onSubmit={submit} className="flex flex-col gap-4">
+        <Field label="Que faut-il faire ?" htmlFor="na-desc">
+          <Textarea id="na-desc" rows={3} required minLength={3} value={form.description} onChange={set("description")} />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Qui s’en charge ?" htmlFor="na-resp">
+            <Input id="na-resp" value={form.responsable} onChange={set("responsable")} />
+          </Field>
+          <Field label="Téléphone" htmlFor="na-tel">
+            <Input id="na-tel" value={form.telephone} onChange={set("telephone")} inputMode="tel" />
+          </Field>
+          <Field label="Pour quand ?" htmlFor="na-date" hint="Rappel par e-mail 7 jours et 1 jour avant.">
+            <Input id="na-date" type="date" value={form.dateCloture} onChange={set("dateCloture")} />
+          </Field>
         </div>
       </form>
-    </Card>
+    </Modal>
   );
 }
 
-// ─── Action plans ────────────────────────────────────────────────────
+function ActionsSection({ detail, onChange }: { detail: TextDetail; onChange: (d: TextDetail) => void }) {
+  const toast = useToast();
+  const [editing, setEditing] = useState<ActionPlan | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [marking, setMarking] = useState(false);
+  const { canEdit, actionsAllowed } = detail.permissions;
 
-function NewActionForm({ texteSocieteId, onDone }: { texteSocieteId: number; onDone: (d?: TextDetail) => void }) {
-  const [form, setForm] = useState({ description: "", responsable: "", telephone: "", delai: "", dateCloture: "" });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
+  const markCompliant = async () => {
+    setMarking(true);
     try {
-      const d = await api<TextDetail>(`/company/texts/${texteSocieteId}/actions`, {
-        method: "POST",
-        body: {
-          description: form.description,
-          responsable: form.responsable || undefined,
-          telephone: form.telephone || undefined,
-          delai: form.delai || undefined,
-          dateCloture: form.dateCloture || undefined,
-        },
+      const d = await api<TextDetail>(`/company/texts/${detail.id}/evaluation`, {
+        method: "PATCH",
+        body: { applicabiliteId: APPLICABLE, gestionetatId: CONFORME },
       });
-      onDone(d);
+      onChange(d);
+      toast("Bravo, ce texte est maintenant en règle.");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Enregistrement impossible.");
-      setSaving(false);
-    }
-  };
-
-  return (
-    <form onSubmit={submit} className="space-y-4 border-b border-ink-150 bg-ink-50/60 px-5 py-5">
-      <Field label="Action à mener" htmlFor="a-desc">
-        <Textarea id="a-desc" rows={3} required minLength={3} value={form.description} onChange={set("description")} />
-      </Field>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Responsable" htmlFor="a-resp">
-          <Input id="a-resp" value={form.responsable} onChange={set("responsable")} />
-        </Field>
-        <Field label="Téléphone" htmlFor="a-tel">
-          <Input id="a-tel" value={form.telephone} onChange={set("telephone")} inputMode="tel" />
-        </Field>
-        <Field label="Délai" htmlFor="a-delai" hint="Ex. 3 mois">
-          <Input id="a-delai" value={form.delai} onChange={set("delai")} />
-        </Field>
-        <Field label="Date de clôture prévue" htmlFor="a-close">
-          <Input id="a-close" type="date" value={form.dateCloture} onChange={set("dateCloture")} />
-        </Field>
-      </div>
-      {error && <p className="text-[13px] text-bad-700">{error}</p>}
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="secondary" onClick={() => onDone()}>
-          Annuler
-        </Button>
-        <Button type="submit" loading={saving}>
-          Ajouter l’action
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-function ActionRow({
-  action,
-  states,
-  onUpdated,
-}: {
-  action: ActionPlan;
-  states: Ref[];
-  onUpdated: (d: TextDetail) => void;
-}) {
-  const [busy, setBusy] = useState(false);
-  const update = async (body: Record<string, unknown>) => {
-    setBusy(true);
-    try {
-      onUpdated(await api<TextDetail>(`/company/actions/${action.id}`, { method: "PATCH", body }));
+      toast(err instanceof ApiError ? err.message : "Enregistrement impossible.", "error");
     } finally {
-      setBusy(false);
+      setMarking(false);
     }
   };
 
+  if (!detail.actions.length && !actionsAllowed) return null;
+
   return (
-    <li className={cn("px-5 py-4", busy && "opacity-60")}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <p className="whitespace-pre-line text-sm text-ink-900">{action.description || "—"}</p>
-        <Select
-          aria-label="Statut de l’action"
-          value={action.status?.id ?? ""}
-          onChange={(e) => update({ gestionactionId: Number(e.target.value) })}
-          className="w-40 shrink-0"
-        >
-          {!action.status && <option value="">—</option>}
-          {states.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </Select>
+    <section id="actions" className="flex scroll-mt-28 flex-col gap-4 rounded-[22px] border border-ink-200/80 bg-white p-6">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-[17px] font-semibold text-ink-900">Plan d’action de ce texte</h2>
+          <p className="text-[13px] text-ink-500">
+            {detail.actions.length ? plural(detail.actions.length, "action", "actions") : "Aucune action pour le moment"}
+          </p>
+        </div>
+        {actionsAllowed && canEdit && (
+          <Button variant="secondary" icon="plus" onClick={() => setCreating(true)}>
+            Nouvelle action
+          </Button>
+        )}
       </div>
-      <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-[13px] sm:grid-cols-4">
-        <div>
-          <dt className="text-ink-500">Responsable</dt>
-          <dd className="text-ink-800">{action.responsable || "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-ink-500">Délai</dt>
-          <dd className="text-ink-800">{action.delai || "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-ink-500">Ouverture → clôture</dt>
-          <dd className="text-ink-800">
-            {formatDate(action.dateOuverture)} → {formatDate(action.dateCloture)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-ink-500">Effectivité</dt>
-          <dd className="flex items-center gap-2">
-            <div className="h-1.5 w-16 overflow-hidden rounded-full bg-ink-100">
-              <div className="h-full bg-brand-600" style={{ width: `${action.effectivite ?? 0}%` }} />
-            </div>
-            <select
-              aria-label="Effectivité"
-              value={action.effectivite ?? 0}
-              onChange={(e) => update({ effectivite: Number(e.target.value) })}
-              className="tabular rounded border-none bg-transparent p-0 text-[13px] text-ink-800 focus:ring-0"
-            >
-              {[0, 25, 50, 75, 100].map((v) => (
-                <option key={v} value={v}>
-                  {v} %
-                </option>
-              ))}
-            </select>
-          </dd>
-        </div>
-      </dl>
-    </li>
-  );
-}
 
-function ActionsCard({ detail, onChange }: { detail: TextDetail; onChange: (d: TextDetail) => void }) {
-  const [adding, setAdding] = useState(false);
-  return (
-    <Card>
-      <CardHeader
-        title="Actions pour se mettre en règle"
-        description="Ce qu’il faut faire, qui s’en occupe et pour quand"
-        actions={
-          !adding && (
-            <Button variant="secondary" size="sm" icon="plus" onClick={() => setAdding(true)}>
-              Nouvelle action
-            </Button>
-          )
-        }
-      />
-      {adding && (
-        <NewActionForm
-          texteSocieteId={detail.id}
-          onDone={(d) => {
-            setAdding(false);
-            if (d) onChange(d);
-          }}
-        />
+      {detail.suggestCompliance && canEdit && (
+        <div className="animate-[pop_300ms_var(--ease-out-soft)] flex flex-col gap-3 rounded-2xl bg-ok-100 p-4 sm:flex-row sm:items-center">
+          <Icon name="check" size={22} strokeWidth={2.4} className="shrink-0 text-ok-700" />
+          <p className="flex-1 text-[14px] leading-relaxed text-[#134f31]">
+            <b>Toutes les actions de ce texte sont efficaces.</b> Le texte est-il maintenant en règle ?
+          </p>
+          <Button onClick={markCompliant} loading={marking} className="bg-ok-700 hover:bg-[#0f5232]">
+            Oui, il est en règle
+          </Button>
+        </div>
       )}
-      {detail.actions.length ? (
-        <ul className="divide-y divide-ink-150">
+
+      {!actionsAllowed && detail.actions.length > 0 && (
+        <LockedNote icon="pause">
+          Ces actions sont en pause :{" "}
+          {detail.applicabilite.id === 2
+            ? "le texte ne vous concerne pas"
+            : detail.etat?.id === 3
+              ? "le texte est pour information"
+              : "le texte n’est pas encore évalué"}
+          . Elles ne comptent plus et n’envoient plus de rappels ; elles reviendront si vous changez votre évaluation.
+        </LockedNote>
+      )}
+
+      {detail.actions.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2">
           {detail.actions.map((a) => (
-            <ActionRow key={a.id} action={a} states={detail.options.actionStates} onUpdated={onChange} />
+            <ActionCard
+              key={a.id}
+              action={a}
+              showText={false}
+              onOpen={canEdit && actionsAllowed ? () => setEditing(a) : undefined}
+            />
           ))}
-        </ul>
-      ) : (
-        !adding && (
-          <EmptyState
-            icon="listChecks"
-            title="Aucune action"
-            description={
-              detail.etat?.id === 2
-                ? "Ce texte est non conforme : définissez une action pour y remédier."
-                : "Ajoutez une action si une mise en conformité est nécessaire."
-            }
-          />
-        )
+        </div>
       )}
-    </Card>
+
+      {actionsAllowed && !detail.actions.length && (
+        <p className="rounded-xl bg-paper px-4 py-3 text-[13.5px] text-ink-600">
+          {detail.etat?.id === 2
+            ? "Ce texte est à mettre en règle : définissez l’action qui vous permettra d’y remédier."
+            : "Vous pouvez ajouter une action de suivi si besoin."}
+        </p>
+      )}
+
+      <ActionEditor action={editing} open={Boolean(editing)} onClose={() => setEditing(null)} onSaved={onChange} />
+      <NewActionModal detail={detail} open={creating} onClose={() => setCreating(false)} onSaved={onChange} />
+    </section>
   );
 }
 
-// ─── Page ────────────────────────────────────────────────────────────
+function History({ detail }: { detail: TextDetail }) {
+  return (
+    <section className="flex flex-col gap-3 rounded-[22px] border border-ink-200/80 bg-white p-6">
+      <h2 className="text-[13px] font-semibold uppercase tracking-[0.06em] text-ink-500">Historique</h2>
+      <ol className="flex flex-col">
+        {detail.history.map((h, i) => {
+          const s =
+            h.applicabilite === "Non Applicable"
+              ? statusFromIds(2, null)
+              : h.etat === "Conforme"
+                ? statusFromIds(1, 1)
+                : h.etat === "Non conforme"
+                  ? statusFromIds(1, 2)
+                  : h.etat === "A titre indicatif"
+                    ? statusFromIds(1, 3)
+                    : statusFromIds(3, null);
+          return (
+            <li key={h.id} className="relative flex gap-3 pb-4 last:pb-0">
+              {i < detail.history.length - 1 && (
+                <span className="absolute left-[4.5px] top-4 h-full w-px bg-ink-200" aria-hidden="true" />
+              )}
+              <span
+                className={cn(
+                  "relative mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full",
+                  s.tone === "ok" ? "bg-ok-600" : s.tone === "coral" ? "bg-coral-600" : s.tone === "info" ? "bg-info-600" : s.tone === "neutral" ? "bg-ink-300" : "bg-saffron-500",
+                )}
+              />
+              <span className="flex flex-col text-[13.5px]">
+                <span className="text-ink-900">
+                  {h.by ? <b className="font-semibold">{h.by}</b> : "Évaluation"} → {s.label}
+                </span>
+                <span className="text-xs text-ink-500">{formatDate(h.date)}</span>
+              </span>
+            </li>
+          );
+        })}
+        <li className="relative flex gap-3">
+          <span className="relative mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-brand-800" />
+          <span className="flex flex-col text-[13.5px]">
+            <span className="text-ink-900">
+              <b className="font-semibold">IGTS</b> a ajouté ce texte à votre veille.
+            </span>
+            <span className="text-xs text-ink-500">{formatDate(detail.assignedAt)}</span>
+          </span>
+        </li>
+      </ol>
+    </section>
+  );
+}
 
 export default function TextDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const live = useLive();
   const { data, setData, error, loading, reload } = useApi<TextDetail>(`/company/texts/${id}`);
+
+  const update = (d: TextDetail) => {
+    setData(d);
+    live?.reload();
+  };
 
   if (error) {
     return (
@@ -305,96 +256,31 @@ export default function TextDetailPage() {
 
   if (loading || !data) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-4 w-24" />
-        <Skeleton className="h-7 w-2/3" />
-        <Skeleton className="h-64 w-full" />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
+        <Skeleton className="h-[520px] rounded-[22px]" />
+        <Skeleton className="h-[520px] rounded-[22px]" />
       </div>
     );
   }
 
-  const t = data.texte;
-  const meta: [string, string | null | undefined][] = [
-    ["Type", t.type?.name],
-    ["Numéro", t.num],
-    ["Journal officiel", t.journal],
-    ["Date de publication", t.date],
-    ["Secteur", t.secteur?.name],
-    ["Thème", t.theme?.name],
-  ];
-
   return (
-    <>
-      <PageHeader
-        back={{ href: "/dashboard/my-texts", label: "Mes textes" }}
-        title={t.titre}
-        description={[t.type?.name, t.journal, t.date].filter(Boolean).join(" · ")}
-        actions={
-          t.pdfUrl && (
-            <LinkButton href={t.pdfUrl} external icon="download">
-              Texte officiel (PDF)
-            </LinkButton>
-          )
-        }
-      />
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <Card>
-            <CardHeader title="Ce que dit le texte" />
-            <div className="px-5 py-5">
-              <p className="whitespace-pre-line text-[16px] leading-[1.7] text-ink-800">{t.description}</p>
-              <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-ink-150 pt-5 sm:grid-cols-3">
-                {meta.map(([k, v]) => (
-                  <div key={k}>
-                    <dt className="text-xs text-ink-500">{k}</dt>
-                    <dd className="mt-0.5 text-sm text-ink-900">{v || "—"}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          </Card>
-
-          <ActionsCard detail={data} onChange={setData} />
+    <div className="flex flex-col gap-5">
+      <button
+        type="button"
+        onClick={() => (window.history.length > 1 ? router.back() : router.push("/dashboard/my-texts"))}
+        className="inline-flex items-center gap-1.5 self-start text-[13px] font-semibold text-ink-600 hover:text-brand-700"
+      >
+        <Icon name="arrowLeft" size={15} />
+        Retour
+      </button>
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
+        <div className="flex min-w-0 flex-col gap-6">
+          <TextReader detail={data} />
+          <ActionsSection detail={data} onChange={update} />
+          <History detail={data} />
         </div>
-
-        <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
-          <EvaluationPanel detail={data} onSaved={setData} />
-
-          <Card>
-            <CardHeader title="Historique des évaluations" />
-            {data.history.length ? (
-              <ol className="px-5 py-4">
-                {data.history.map((h, i) => (
-                  <li key={h.id} className="relative flex gap-3 pb-4 last:pb-0">
-                    {i < data.history.length - 1 && (
-                      <span className="absolute left-[5px] top-4 h-full w-px bg-ink-200" aria-hidden="true" />
-                    )}
-                    <span className="relative mt-1.5 h-[11px] w-[11px] shrink-0 rounded-full border-2 border-ink-300 bg-white" />
-                    <div className="min-w-0 text-[13px]">
-                      <p className="text-ink-900">
-                        {h.applicabilite === "Non Applicable"
-                          ? "Non applicable"
-                          : h.etat ?? h.applicabilite ?? "Évaluation"}
-                      </p>
-                      <p className="text-ink-500">
-                        {formatDate(h.date)}
-                        {h.by ? ` · ${h.by}` : ""}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="flex items-center gap-2 px-5 py-4 text-[13px] text-ink-500">
-                <Icon name="history" size={15} /> Aucun historique pour ce texte.
-              </p>
-            )}
-          </Card>
-
-          <p className="px-1 text-xs text-ink-500">Ajouté à votre veille le {formatDate(data.assignedAt)}.</p>
-        </div>
+        <EvaluationPanel detail={data} mode="detail" onSaved={update} className="lg:sticky lg:top-24" />
       </div>
-    </>
+    </div>
   );
 }
