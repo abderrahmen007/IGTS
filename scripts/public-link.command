@@ -30,4 +30,6 @@ if ! command -v cloudflared >/dev/null 2>&1; then
 fi
 
 echo "Ouverture du lien… l'adresse https://….trycloudflare.com s'affiche ci-dessous dans quelques secondes."
-cloudflared tunnel --no-autoupdate --url http://localhost:3000 2>&1 | tee "$LOG"
+echo "Le Mac reste éveillé tant que cette fenêtre est ouverte (gardez-le branché, écran ouvert)."
+# caffeinate keeps the Mac awake (no idle, display or system sleep on power) while the link is open
+caffeinate -dims cloudflared tunnel --no-autoupdate --url http://localhost:3000 2>&1 | tee "$LOG"
