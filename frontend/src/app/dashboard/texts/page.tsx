@@ -158,7 +158,7 @@ function TextsView() {
                     className="cursor-pointer hover:bg-ink-50"
                   >
                     <td className={cn(td, "max-w-[520px]")}>
-                      <p className="font-medium text-ink-900">{t.titre}</p>
+                      <p title={t.titre} className="line-clamp-2 font-medium leading-snug text-ink-900">{t.titre}</p>
                       <p className="text-[13px] text-ink-500">
                         {[t.type, t.journal, t.date].filter(Boolean).join(" · ")}
                         {!t.hasPdf && <span className="ml-2 text-warn-700">PDF manquant</span>}

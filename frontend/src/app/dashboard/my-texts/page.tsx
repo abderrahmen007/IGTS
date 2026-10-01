@@ -174,7 +174,8 @@ function MyTextsView() {
                       <Link
                         href={`/dashboard/my-texts/${t.id}`}
                         onClick={(e) => e.stopPropagation()}
-                        className="text-[15px] font-semibold text-ink-900 hover:text-brand-700"
+                        title={t.titre}
+                        className="line-clamp-2 text-[15px] font-semibold leading-snug text-ink-900 hover:text-brand-700"
                       >
                         {t.titre}
                       </Link>
