@@ -11,6 +11,11 @@ export interface UserPreferences {
   emailReminders: boolean;
   /** When the guided tour was finished or skipped (null = show it on next visit) */
   tourSeenAt: string | null;
+  /**
+   * Id of the last company notification this person has marked as read.
+   * Null until they first do: the shared legacy `is_read` flag applies until then.
+   */
+  notificationsReadUpTo: number | null;
 }
 
 /** Drops undefined keys (validated DTO instances carry every declared field). */
@@ -22,6 +27,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   emailNewTexts: true,
   emailReminders: true,
   tourSeenAt: null,
+  notificationsReadUpTo: null,
 };
 
 /**

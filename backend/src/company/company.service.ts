@@ -190,9 +190,7 @@ export class CompanyService {
         }),
         this.prisma.company.findUnique({ where: { id: user.id } }),
         this.prisma.company.findUnique({ where: { id: user.ownerId! } }),
-        this.prisma.notification.count({
-          where: { companyId: user.ownerId!, OR: [{ isRead: false }, { isRead: null }] },
-        }),
+        this.prisma.notification.count({ where: this.unreadWhere(user) }),
         this.liveTexts(user),
         this.prisma.texteSociete.findMany({
           where: { AND: [where, STATUS_FILTERS['a-analyser']] },
@@ -840,16 +838,14 @@ export class CompanyService {
   // ─── Notifications ─────────────────────────────────────────────────
 
   async notifications(user: AuthUser) {
-    const where = { companyId: user.ownerId! };
+    const seen = this.prefs.get(user.id).notificationsReadUpTo;
     const [items, unread] = await Promise.all([
       this.prisma.notification.findMany({
-        where,
+        where: { companyId: user.ownerId! },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: 15,
       }),
-      this.prisma.notification.count({
-        where: { ...where, OR: [{ isRead: false }, { isRead: null }] },
-      }),
+      this.prisma.notification.count({ where: this.unreadWhere(user) }),
     ]);
     const textes = await this.prisma.texte.findMany({
       where: { id: { in: items.map((n) => n.texteId!).filter(Boolean) } },
@@ -864,16 +860,38 @@ export class CompanyService {
         texteTitre: n.texteId ? titre.get(n.texteId) ?? null : null,
         texteSocieteId: n.texteSocieteId,
         createdAt: n.createdAt,
-        read: n.isRead === true,
+        read: seen === null ? n.isRead === true : n.id <= seen,
       })),
     };
   }
 
+  /**
+   * Each person has their own read state: a sub-account reading an alert no
+   * longer hides it from colleagues. Until someone first marks notifications
+   * as read, the shared legacy flag (`is_read`, used by Symfony) applies.
+   */
+  private unreadWhere(user: AuthUser): Prisma.NotificationWhereInput {
+    const seen = this.prefs.get(user.id).notificationsReadUpTo;
+    return seen === null
+      ? { companyId: user.ownerId!, OR: [{ isRead: false }, { isRead: null }] }
+      : { companyId: user.ownerId!, id: { gt: seen } };
+  }
+
   async markNotificationsRead(user: AuthUser) {
-    const { count } = await this.prisma.notification.updateMany({
-      where: { companyId: user.ownerId!, OR: [{ isRead: false }, { isRead: null }] },
-      data: { isRead: true, etat: 'lu' },
+    const last = await this.prisma.notification.findFirst({
+      where: { companyId: user.ownerId! },
+      orderBy: { id: 'desc' },
+      select: { id: true },
     });
+    await this.prefs.update(user.id, { notificationsReadUpTo: last?.id ?? 0 });
+    // The main account keeps the shared legacy flag in step, as Symfony did
+    let count = 0;
+    if (user.id === user.ownerId) {
+      ({ count } = await this.prisma.notification.updateMany({
+        where: { companyId: user.ownerId, OR: [{ isRead: false }, { isRead: null }] },
+        data: { isRead: true, etat: 'lu' },
+      }));
+    }
     this.notifier.refresh(user.ownerId!);
     return { updated: count };
   }

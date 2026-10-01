@@ -172,6 +172,8 @@ export interface Preferences {
   emailNewTexts: boolean;
   emailReminders: boolean;
   tourSeenAt: string | null;
+  /** Last notification this person marked as read (null: shared legacy flag) */
+  notificationsReadUpTo?: number | null;
 }
 
 export interface Profile {
