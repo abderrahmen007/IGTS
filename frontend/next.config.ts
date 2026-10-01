@@ -1,10 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Public demo links (tunnels) may load the dev server from these hosts
   allowedDevOrigins: [
-    '8f1e1dae249307fc-196-238-52-94.serveousercontent.com',
-    'igts-veille.loca.lt',
-    'bandwidth-fioricet-reprint-elimination.trycloudflare.com'
+    '*.trycloudflare.com',
+    '*.serveousercontent.com',
+    '*.loca.lt',
   ],
   async rewrites() {
     return [

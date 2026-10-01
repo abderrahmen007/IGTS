@@ -40,3 +40,6 @@ backend/outbox/
 
 # Per-user preferences store (JSON)
 backend/data/
+
+# Public demo link logs (scripts/public-link.command)
+.tunnel/
