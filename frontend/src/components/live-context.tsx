@@ -46,13 +46,14 @@ export function LiveProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     reload();
-    const session = getSession();
-    if (!session || typeof EventSource === "undefined") return;
+    if (!getSession() || typeof EventSource === "undefined") return;
 
-    const source = new EventSource(`${API_URL}/notifications/stream?token=${encodeURIComponent(session.token)}`);
-    source.onopen = () => setConnected(true);
-    source.onerror = () => setConnected(false); // EventSource reconnects by itself
-    source.onmessage = (e) => {
+    let source: EventSource | null = null;
+    let retry: number | undefined;
+    let stopped = false;
+    let opened = false;
+
+    const onMessage = (e: MessageEvent<string>) => {
       let data: { type: string; item?: { message: string; texteTitre?: string | null } };
       try {
         data = JSON.parse(e.data);
@@ -67,10 +68,40 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       setVersion((v) => v + 1);
     };
 
+    // The stream is opened with a one-minute token (it travels in the URL, which
+    // proxies log), so every reconnection asks for a fresh one.
+    const connect = async () => {
+      if (stopped) return;
+      try {
+        const { token } = await api<{ token: string }>("/notifications/stream-token", { method: "POST" });
+        if (stopped) return;
+        source = new EventSource(`${API_URL}/notifications/stream?token=${encodeURIComponent(token)}`);
+        source.onopen = () => {
+          setConnected(true);
+          // Catch up on anything missed while disconnected
+          if (opened) reload();
+          opened = true;
+        };
+        source.onerror = () => {
+          setConnected(false);
+          source?.close();
+          source = null;
+          retry = window.setTimeout(connect, 5_000);
+        };
+        source.onmessage = onMessage;
+      } catch {
+        setConnected(false);
+        retry = window.setTimeout(connect, 30_000);
+      }
+    };
+    void connect();
+
     // Safety net if the live connection is blocked (proxy, firewall)
     const poll = window.setInterval(reload, 5 * 60_000);
     return () => {
-      source.close();
+      stopped = true;
+      source?.close();
+      window.clearTimeout(retry);
       window.clearInterval(poll);
     };
   }, [reload]);

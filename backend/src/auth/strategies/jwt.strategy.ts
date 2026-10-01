@@ -51,6 +51,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       };
     }
 
+    // Only session tokens open the API (not, e.g., the short-lived live-stream tokens)
+    if (payload.type !== 'company') throw new UnauthorizedException();
+
     const company = await this.prisma.company.findUnique({
       where: { id: payload.sub },
       select: { id: true, email: true, nom: true, multicompte: true, droitacceeId: true, deleted: true, activated: true },
