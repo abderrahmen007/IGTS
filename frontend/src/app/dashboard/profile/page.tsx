@@ -180,14 +180,14 @@ export default function ProfilePage() {
   return (
     <div className="flex flex-col gap-6">
       {/* Identity */}
-      <section className="relative h-auto sm:h-[222px]">
+      <section className="relative h-auto lg:h-[222px]">
         <div className="zellige relative h-[150px] overflow-hidden rounded-[24px] bg-brand-800">
           <div
             aria-hidden="true"
             className="absolute -top-20 right-20 h-[300px] w-[300px] rounded-full border-[56px] border-saffron-500 opacity-55 blur-[30px]"
           />
         </div>
-        <div className="glass relative -mt-20 mx-3 flex flex-col gap-5 rounded-[22px] px-6 py-5 sm:absolute sm:inset-x-6 sm:top-[70px] sm:mx-0 sm:mt-0 sm:h-[144px] sm:flex-row sm:items-center sm:py-0">
+        <div className="glass relative -mt-20 mx-3 flex flex-col gap-5 rounded-[22px] px-6 py-5 sm:mx-6 lg:absolute lg:inset-x-6 lg:top-[70px] lg:mx-0 lg:mt-0 lg:h-[144px] lg:flex-row lg:items-center lg:py-0">
           <span className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-saffron-100 font-serif text-4xl font-semibold text-saffron-700 shadow-[0_0_0_4px_#fff,0_14px_30px_-12px_rgb(28_7_108/0.5)]">
             {initials(p.nom)}
           </span>

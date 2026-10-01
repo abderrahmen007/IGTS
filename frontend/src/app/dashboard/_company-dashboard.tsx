@@ -64,19 +64,19 @@ function ServiceTile({
   const inner = (
     <>
       <span className="flex items-center justify-between">
-        <span className={cn("gem flex h-11 w-11 items-center justify-center rounded-[14px]", gem)}>
+        <span className={cn("gem flex h-10 w-10 items-center justify-center rounded-[13px] sm:h-11 sm:w-11 sm:rounded-[14px]", gem)}>
           <Icon name={icon} size={22} strokeWidth={1.9} />
         </span>
         <Icon
           name="arrowRight"
           size={20}
           strokeWidth={2}
-          className="text-brand-800 opacity-40 transition-[transform,opacity] duration-200 group-hover:translate-x-1 group-hover:opacity-100"
+          className="hidden text-brand-800 opacity-40 transition-[transform,opacity] duration-200 group-hover:translate-x-1 group-hover:opacity-100 sm:block"
         />
       </span>
-      <span className="flex items-baseline gap-2">
+      <span className="flex min-w-0 items-baseline gap-2">
         {value !== undefined && (
-          <span className="tabular font-serif text-[30px] font-semibold leading-none text-ink-900">{value}</span>
+          <span className="tabular font-serif text-[26px] font-semibold leading-none text-ink-900 sm:text-[30px]">{value}</span>
         )}
         <span className="flex min-w-0 flex-col text-left">
           <span className="text-[14.5px] font-semibold text-ink-900">{label}</span>
@@ -85,7 +85,7 @@ function ServiceTile({
       </span>
     </>
   );
-  const cls = "glass lift group flex min-h-32 flex-col justify-between gap-4 rounded-[20px] p-[18px] text-ink-900";
+  const cls = "glass lift group flex min-h-28 flex-col justify-between gap-3 rounded-[18px] p-3.5 text-ink-900 sm:min-h-32 sm:gap-4 sm:rounded-[20px] sm:p-[18px]";
   return href ? (
     <Link href={href} className={cls}>
       {inner}
@@ -280,7 +280,7 @@ export function CompanyDashboard() {
 
       {error && <ErrorState message={error} onRetry={reload} />}
 
-      <section data-tour="services" aria-label="Services" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section data-tour="services" aria-label="Services" className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <ServiceTile
           href="/dashboard/evaluations"
           gem="bg-saffron-500 text-[#3a2400]"
@@ -417,7 +417,7 @@ export function CompanyDashboard() {
             <h2 className="text-[17px] font-semibold text-ink-900">Vos domaines</h2>
             <span className="text-[13px] text-ink-500">{plural(data.bySecteur.length, "domaine suivi", "domaines suivis")}</span>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             {data.bySecteur.map((d) => {
               const color = domainColor(d.name);
               return (
