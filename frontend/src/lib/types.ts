@@ -243,6 +243,16 @@ export interface AdminOverview {
     createdAt: string | null;
     assignments: number;
   }[];
+  /** Clients to follow up: texts waiting for an evaluation, late actions */
+  followUp: {
+    id: number;
+    name: string;
+    contact: string | null;
+    toEvaluate: number;
+    overdueActions: number;
+  }[];
+  /** Work waiting on IGTS itself */
+  todo: { unassignedTexts: number; drafts: number };
 }
 
 export interface AdminCompany {

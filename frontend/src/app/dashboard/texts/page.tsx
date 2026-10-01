@@ -27,7 +27,7 @@ type Response = Paginated<AdminText> & { filters: { secteurs: Ref[]; types: Ref[
 
 function TextsView() {
   const router = useRouter();
-  const [q, setQ] = useUrlState(["search", "secteurId", "typeId", "page"] as const);
+  const [q, setQ] = useUrlState(["search", "secteurId", "typeId", "unassigned", "page"] as const);
   const [search, setSearch] = useState(q.search);
   const debounced = useDebounced(search);
   useEffect(() => {
@@ -39,10 +39,11 @@ function TextsView() {
     search: q.search,
     secteurId: q.secteurId,
     typeId: q.typeId,
+    unassigned: q.unassigned === "1" ? "1" : undefined,
     page: q.page || 1,
     pageSize: 25,
   });
-  const hasFilters = Boolean(q.search || q.secteurId || q.typeId);
+  const hasFilters = Boolean(q.search || q.secteurId || q.typeId || q.unassigned);
 
   return (
     <>
@@ -91,6 +92,19 @@ function TextsView() {
                 </option>
               ))}
             </Select>
+            <button
+              type="button"
+              aria-pressed={q.unassigned === "1"}
+              onClick={() => setQ({ unassigned: q.unassigned === "1" ? null : "1" })}
+              className={cn(
+                "col-span-2 h-10 rounded-full border px-4 text-[13.5px] font-semibold transition-colors md:col-span-1",
+                q.unassigned === "1"
+                  ? "border-brand-800 bg-brand-800 text-white"
+                  : "border-ink-200 bg-white text-ink-700 hover:bg-paper",
+              )}
+            >
+              Non distribués
+            </button>
           </div>
           {hasFilters && (
             <Button
@@ -99,7 +113,7 @@ function TextsView() {
               icon="x"
               onClick={() => {
                 setSearch("");
-                setQ({ search: null, secteurId: null, typeId: null });
+                setQ({ search: null, secteurId: null, typeId: null, unassigned: null });
               }}
             >
               Effacer

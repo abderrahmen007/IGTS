@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { Badge, ErrorState, Ring, Skeleton, StackedBar, cn, toneBadge } from "@/components/ui";
 import { Icon, type IconName } from "@/components/icons";
+import { ServiceTile } from "@/components/service-tile";
 import { StatusBadge } from "@/components/status-badge";
 import { useLive } from "@/components/live-context";
 import { useMe } from "@/components/me-context";
@@ -40,61 +41,6 @@ function domainColor(name: string): { bg: string; text: string } {
   if (n.includes("social")) return { bg: "bg-info-50", text: "text-info-700" };
   if (n.includes("qualité")) return { bg: "bg-brand-50", text: "text-brand-700" };
   return { bg: "bg-ink-50", text: "text-ink-700" };
-}
-
-// ─── Key services ────────────────────────────────────────────────────
-
-function ServiceTile({
-  href,
-  onClick,
-  gem,
-  icon,
-  value,
-  label,
-  sub,
-}: {
-  href?: string;
-  onClick?: () => void;
-  gem: string;
-  icon: IconName;
-  value?: string;
-  label: string;
-  sub: string;
-}) {
-  const inner = (
-    <>
-      <span className="flex items-center justify-between">
-        <span className={cn("gem flex h-10 w-10 items-center justify-center rounded-[13px] sm:h-11 sm:w-11 sm:rounded-[14px]", gem)}>
-          <Icon name={icon} size={22} strokeWidth={1.9} />
-        </span>
-        <Icon
-          name="arrowRight"
-          size={20}
-          strokeWidth={2}
-          className="hidden text-brand-800 opacity-40 transition-[transform,opacity] duration-200 group-hover:translate-x-1 group-hover:opacity-100 sm:block"
-        />
-      </span>
-      <span className="flex min-w-0 items-baseline gap-2">
-        {value !== undefined && (
-          <span className="tabular font-serif text-[26px] font-semibold leading-none text-ink-900 sm:text-[30px]">{value}</span>
-        )}
-        <span className="flex min-w-0 flex-col text-left">
-          <span className="text-[14.5px] font-semibold text-ink-900">{label}</span>
-          <span className="truncate text-[12.5px] text-ink-600">{sub}</span>
-        </span>
-      </span>
-    </>
-  );
-  const cls = "glass lift group flex min-h-28 flex-col justify-between gap-3 rounded-[18px] p-3.5 text-ink-900 sm:min-h-32 sm:gap-4 sm:rounded-[20px] sm:p-[18px]";
-  return href ? (
-    <Link href={href} className={cls}>
-      {inner}
-    </Link>
-  ) : (
-    <button type="button" onClick={onClick} className={cls}>
-      {inner}
-    </button>
-  );
 }
 
 // ─── Next step (the one saturated block of the page) ─────────────────

@@ -26,8 +26,15 @@ import type { AdminCompany, Paginated } from "@/lib/types";
 function CompaniesView() {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
-  const [q, setQ] = useUrlState(["search", "page"] as const);
+  const [q, setQ] = useUrlState(["search", "page", "new"] as const);
   const [search, setSearch] = useState(q.search);
+  // "?new=1" (link from the admin home) opens the creation form directly
+  useEffect(() => {
+    if (q.new !== "1") return;
+    setCreating(true);
+    setQ({ new: null }, { resetPage: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q.new]);
   const debounced = useDebounced(search);
   useEffect(() => {
     if (debounced !== q.search) setQ({ search: debounced });

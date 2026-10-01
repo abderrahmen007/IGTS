@@ -1,10 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 import { clampPage } from '../common/text-utils';
 import { computeStats } from '../company/company.service';
+import {
+  APPLICABILITE_NON_ANALYSEE,
+  APPLICABLE,
+  ETAT_NON_ANALYSE,
+  LIVE_ACTIONS_TEXT,
+  OPEN_ACTION_STATES,
+  daysUntil,
+} from '../company/rules';
 
 export class AdminListQuery {
   @IsOptional() @IsString() @MaxLength(200)
@@ -21,6 +29,10 @@ export class AdminListQuery {
 
   @IsOptional() @Type(() => Number) @IsInt() @Min(5) @Max(100)
   pageSize?: number;
+
+  /** Texts: only those no company receives yet ("1") */
+  @IsOptional() @IsIn(['1'])
+  unassigned?: string;
 }
 
 const TS_ACTIVE: Prisma.TexteSocieteWhereInput = {
@@ -28,6 +40,14 @@ const TS_ACTIVE: Prisma.TexteSocieteWhereInput = {
   texte: { deleted: false },
 };
 const MAIN_COMPANY: Prisma.CompanyWhereInput = { deleted: false, multicompte: 0 };
+/** Same definition as the company space's « À évaluer ». */
+const PENDING: Prisma.TexteSocieteWhereInput = {
+  OR: [
+    { applicabiliteId: APPLICABILITE_NON_ANALYSEE },
+    { applicabiliteId: APPLICABLE, gestionetatId: null },
+    { applicabiliteId: APPLICABLE, gestionetatId: ETAT_NON_ANALYSE },
+  ],
+};
 
 @Injectable()
 export class AdminService {
@@ -84,6 +104,8 @@ export class AdminService {
     });
     const assignBy = new Map(assignCounts.map((a) => [a.texteId, a._count._all]));
 
+    const [followUp, todo] = await Promise.all([this.companiesToFollow(), this.igtsTodo()]);
+
     return {
       stats: {
         companies,
@@ -93,6 +115,8 @@ export class AdminService {
         assignments,
         compliance: computeStats(grouped.map((g) => ({ ...g, count: g._count._all }))),
       },
+      followUp,
+      todo,
       recentCompanies: recentCompanies.map((c) => ({ ...c, stats: stats.get(c.id) })),
       recentTexts: recentTexts.map((t) => ({
         id: t.id,
@@ -105,6 +129,78 @@ export class AdminService {
         assignments: assignBy.get(t.id) ?? 0,
       })),
     };
+  }
+
+  /**
+   * Client companies an IGTS consultant should call: texts waiting for an
+   * evaluation and late actions (actions on texts that no longer need them are
+   * left out, as in the company space).
+   */
+  private async companiesToFollow() {
+    const [pending, openActions] = await Promise.all([
+      this.prisma.texteSociete.groupBy({
+        by: ['companyId'],
+        where: { AND: [TS_ACTIVE, PENDING] },
+        _count: { _all: true },
+      }),
+      this.prisma.plusaction.findMany({
+        where: { gestionactionId: { in: OPEN_ACTION_STATES } },
+        select: { companyId: true, texteSocieteId: true, cloture: true },
+      }),
+    ]);
+    const live = new Set(
+      (
+        await this.prisma.texteSociete.findMany({
+          where: {
+            ...TS_ACTIVE,
+            ...LIVE_ACTIONS_TEXT,
+            id: { in: openActions.map((a) => a.texteSocieteId).filter((id): id is number => id !== null) },
+          },
+          select: { id: true },
+        })
+      ).map((t) => t.id),
+    );
+    const overdue = new Map<number, number>();
+    for (const a of openActions) {
+      if (!a.companyId || !a.texteSocieteId || !live.has(a.texteSocieteId)) continue;
+      const d = daysUntil(a.cloture);
+      if (d !== null && d < 0) overdue.set(a.companyId, (overdue.get(a.companyId) ?? 0) + 1);
+    }
+    const pendingBy = new Map(pending.filter((p) => p.companyId).map((p) => [p.companyId!, p._count._all]));
+    const ids = [...new Set([...pendingBy.keys(), ...overdue.keys()])];
+    const companies = await this.prisma.company.findMany({
+      where: { ...MAIN_COMPANY, id: { in: ids } },
+      select: { id: true, nom: true, raisonsociale: true },
+    });
+    return companies
+      .map((c) => ({
+        id: c.id,
+        name: c.raisonsociale || c.nom,
+        contact: c.raisonsociale ? c.nom : null,
+        toEvaluate: pendingBy.get(c.id) ?? 0,
+        overdueActions: overdue.get(c.id) ?? 0,
+      }))
+      .sort((a, b) => b.overdueActions * 5 + b.toEvaluate - (a.overdueActions * 5 + a.toEvaluate))
+      .slice(0, 5);
+  }
+
+  /** Texts published on the platform that no company receives yet. */
+  private async unassignedTextIds(): Promise<number[]> {
+    const [assigned, texts] = await Promise.all([
+      this.prisma.texteSociete.groupBy({ by: ['texteId'], where: TS_ACTIVE }),
+      this.prisma.texte.findMany({ where: { deleted: false }, select: { id: true } }),
+    ]);
+    const withCompany = new Set(assigned.map((a) => a.texteId));
+    return texts.filter((t) => !withCompany.has(t.id)).map((t) => t.id);
+  }
+
+  /** Work waiting on IGTS itself: texts nobody receives yet, drafts to validate. */
+  private async igtsTodo() {
+    const [unassigned, drafts] = await Promise.all([
+      this.unassignedTextIds(),
+      this.prisma.texte.count({ where: { deleted: false, enabled: false } }),
+    ]);
+    return { unassignedTexts: unassigned.length, drafts };
   }
 
   async companies(q: AdminListQuery) {
@@ -160,8 +256,10 @@ export class AdminService {
   async texts(q: AdminListQuery) {
     const { page, pageSize, skip } = clampPage(q.page, q.pageSize);
     const search = q.search?.trim();
+    const unassignedIds = q.unassigned ? await this.unassignedTextIds() : null;
     const where: Prisma.TexteWhereInput = {
       deleted: false,
+      ...(unassignedIds ? { id: { in: unassignedIds } } : {}),
       ...(q.secteurId ? { secteurId: q.secteurId } : {}),
       ...(q.typeId ? { typeId: q.typeId } : {}),
       ...(search
