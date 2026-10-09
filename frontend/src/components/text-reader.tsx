@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "./icons";
 import { Badge, Button, cn } from "./ui";
 import { Modal, useToast } from "./overlay";
@@ -34,12 +34,11 @@ function AiImpactModal({
     }
   };
 
-  // Trigger fetch when opening modal if not already fetched
-  const handleOpen = () => {
-    if (!data && !loading) {
+  useEffect(() => {
+    if (open && !data && !loading) {
       void fetchAnalysis();
     }
-  };
+  }, [open, detail.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Modal
