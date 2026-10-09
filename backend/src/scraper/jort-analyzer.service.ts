@@ -285,7 +285,11 @@ export class JortAnalyzerService {
     };
   }
 
-  /** Keeps only identifiers that exist and a theme that belongs to its sector. */
+  /**
+   * Keeps only identifiers that exist and a theme that belongs to its sector,
+   * and drops texts whose title shows an individual or local scope even when
+   * the AI kept them (it did keep a list of homologated diplomas at 0.9).
+   */
   validate(
     raw: Record<string, unknown>,
     ref: Reference,
@@ -298,9 +302,15 @@ export class JortAnalyzerService {
     >[];
 
     const out: AnalyzedText[] = [];
+    const excluded: string[] = [];
     for (const t of texts) {
       const titre = clean(t.titre);
       if (titre.length < 5) continue;
+      const rule = excludedScope(titre);
+      if (rule) {
+        excluded.push(rule);
+        continue;
+      }
       const review = (Array.isArray(t.needsReview) ? t.needsReview : [])
         .map(clean)
         .filter(Boolean);
@@ -341,13 +351,37 @@ export class JortAnalyzerService {
       });
     }
 
+    const summary = clean(raw.ignoredSummary);
+    const extra = excluded.length
+      ? `${excluded.length} écarté(s) après lecture (${[...new Set(excluded)].join(', ')})`
+      : '';
     return {
       issueNumber: clean(raw.issueNumber).replace(/^n[°o]\s*/i, ''),
       issueDate: clean(raw.issueDate),
       texts: out,
-      ignoredCount: Math.max(0, Math.floor(Number(raw.ignoredCount) || 0)),
-      ignoredSummary: clean(raw.ignoredSummary),
+      ignoredCount:
+        Math.max(0, Math.floor(Number(raw.ignoredCount) || 0)) +
+        excluded.length,
+      ignoredSummary: [summary, extra].filter(Boolean).join(' ; '),
       model: this.model,
     };
   }
+}
+
+/**
+ * Titles that are individual or local by nature: never a general obligation
+ * for companies. Returns the reason, or null when the text may be kept.
+ */
+const EXCLUDED_SCOPES: [RegExp, string][] = [
+  [/homologation[^.]*\b(dipl[ôo]mes?|certificats?)\b/i, 'homologation de diplômes'],
+  [/\bportant nominations?\b/i, 'nomination'],
+  [/\bd[ée]l[ée]gation de signature\b/i, 'délégation de signature'],
+  [/\bcessation de fonctions?\b/i, 'cessation de fonctions'],
+  [/\bchangement (de |du )?(nom|pr[ée]nom)s?\b/i, 'changement de nom'],
+  [/\bexpropriation\b/i, 'expropriation'],
+  [/\bconcours (interne|externe|sur dossiers?|sur [ée]preuves)\b/i, 'concours de recrutement'],
+];
+
+export function excludedScope(titre: string): string | null {
+  return EXCLUDED_SCOPES.find(([re]) => re.test(titre))?.[1] ?? null;
 }

@@ -1,7 +1,7 @@
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { IortSource } from './iort.source';
-import { JortAnalyzerService } from './jort-analyzer.service';
+import { JortAnalyzerService, excludedScope } from './jort-analyzer.service';
 import { DraftsService, normalizeTitle } from './drafts.service';
 import { frenchDate } from './scraper.service';
 
@@ -231,5 +231,46 @@ describe('veille automatique — fiches et liens de validation', () => {
       refused = true;
     }
     expect(refused).toBe(true);
+  });
+});
+
+describe('veille automatique — portée individuelle ou locale', () => {
+  it.each([
+    "Arrêté du ministre de l'emploi et de la formation professionnelle du 6 octobre 2026 portant homologation, renouvellement d'homologation et prolongation d'homologation de certificats et diplômes de formation professionnelle.",
+    'Décret Présidentiel n° 2026-512 du 3 octobre 2026, portant nomination du directeur général de l’office.',
+    'Arrêté du ministre des finances du 2 octobre 2026, portant délégation de signature.',
+    'Décret n° 2026-498 du 1er octobre 2026, portant expropriation pour cause d’utilité publique.',
+    'Arrêté du 30 septembre 2026, portant ouverture d’un concours interne pour la promotion au grade d’ingénieur.',
+  ])('écarte « %s »', (titre) => {
+    expect(excludedScope(titre)).not.toBeNull();
+  });
+
+  it.each([
+    'Décret gouvernemental n° 2026-450 du 28 septembre 2026, fixant les règles de sécurité contre les risques d’incendie dans les établissements recevant du public.',
+    'Arrêté du ministre de l’environnement du 5 octobre 2026, fixant les valeurs limites de rejet des effluents industriels.',
+    'Loi n° 2026-31 du 7 octobre 2026, relative à la santé et à la sécurité au travail.',
+  ])('garde « %s »', (titre) => {
+    expect(excludedScope(titre)).toBeNull();
+  });
+
+  it('compte les textes écartés après lecture avec ceux de l’IA', () => {
+    const analyzer = new JortAnalyzerService({} as never, new ConfigService({}));
+    const res = analyzer.validate(
+      {
+        texts: [
+          { titre: 'Arrêté portant homologation de diplômes de formation professionnelle' },
+          { titre: 'Loi relative à la santé et à la sécurité au travail', confidence: 0.9 },
+        ],
+        ignoredCount: 10,
+        ignoredSummary: '10 nominations',
+      },
+      { secteurs: [], types: [] },
+      null,
+    );
+    expect(res.texts.map((t) => t.titre)).toEqual([
+      'Loi relative à la santé et à la sécurité au travail',
+    ]);
+    expect(res.ignoredCount).toBe(11);
+    expect(res.ignoredSummary).toContain('homologation de diplômes');
   });
 });
