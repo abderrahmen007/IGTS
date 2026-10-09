@@ -25,6 +25,7 @@ const PATHS = {
   alert: "M12 4l9 16H3zM12 10v4M12 17.5v.01",
   external: "M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4",
   download: "M12 4v11M7 10.5l5 5 5-5M5 20h14",
+  upload: "M12 20V9M7 13.5l5-5 5 5M5 4h14",
   arrowLeft: "M19 12H5M11 18l-6-6 6-6",
   arrowRight: "M5 12h14M13 6l6 6-6 6",
   send: "M4 12l16-8-6 16-2.5-6.5z",

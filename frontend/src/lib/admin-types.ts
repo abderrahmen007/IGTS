@@ -99,3 +99,92 @@ export function generatePassword(length = 12) {
   crypto.getRandomValues(bytes);
   return Array.from(bytes, (b) => chars[b % chars.length]).join("");
 }
+
+// ─── Automatic watch (JORT collection, AI drafts) ───────────────────
+
+export type DraftStatus = "pending" | "published" | "rejected";
+
+export interface DraftActor {
+  id: number;
+  nom: string;
+  via: "email" | "platform";
+}
+
+export interface VeilleDraft {
+  id: number;
+  status: DraftStatus;
+  createdAt: string;
+  updatedAt: string;
+  titre: string;
+  description: string;
+  journal: string;
+  date: string;
+  num: string;
+  type: Ref | null;
+  secteur: Ref | null;
+  theme: Ref | null;
+  pdfUrl: string | null;
+  issuePdfUrl: string | null;
+  ai: {
+    model: string;
+    confidence: number;
+    reason: string;
+    keyPoints: string[];
+    ministere: string;
+    signedOn: string;
+    needsReview: string[];
+  };
+  source: {
+    kind: "iort" | "import";
+    issue: string;
+    issueKey: string;
+    pages: [number, number] | null;
+    url: string | null;
+  };
+  /** Type, sector and theme are set: the draft can be published as is */
+  ready: boolean;
+  /** Companies subscribed to the theme, which will receive the text */
+  companies: number;
+  duplicateOf: { id: number; titre: string } | null;
+  publishedTextId: number | null;
+  publishedAt: string | null;
+  publishedBy: DraftActor | null;
+  rejectedAt: string | null;
+  rejectedBy: DraftActor | null;
+  rejectReason: string | null;
+}
+
+export interface DraftList {
+  counts: Record<DraftStatus, number>;
+  items: VeilleDraft[];
+}
+
+export interface VeilleRun {
+  id: number;
+  trigger: "schedule" | "manual" | "catch-up" | "import";
+  startedAt: string;
+  finishedAt: string | null;
+  status: "running" | "ok" | "nothing-new" | "error";
+  message: string;
+  issues: string[];
+  drafts: number;
+  steps: string[];
+}
+
+export interface VeilleStatus {
+  enabled: boolean;
+  schedule: string;
+  nextRun: string | null;
+  aiAvailable: boolean;
+  aiModel: string;
+  running: VeilleRun | null;
+  runs: VeilleRun[];
+  issues: { key: string; label: string; processedAt: string; drafts: number; ignored: number }[];
+  pending: number;
+}
+
+export interface DraftPublishResult {
+  textId: number;
+  distributedTo: number;
+  draft: VeilleDraft;
+}

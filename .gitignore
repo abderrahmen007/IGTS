@@ -18,7 +18,7 @@ veille.rar
 *.rar
 
 # Legacy Symfony app (reference only)
-veille/
+/veille/
 
 # OS / editor
 .DS_Store

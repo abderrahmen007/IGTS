@@ -43,6 +43,7 @@ const ADMIN_PAGES: Destination[] = [
   { label: "Textes réglementaires", href: "/dashboard/texts", icon: "file", keywords: "veille" },
   { label: "Publier un texte", href: "/dashboard/texts/new", icon: "plus", keywords: "nouveau texte" },
   { label: "Textes non distribués", href: "/dashboard/texts?unassigned=1", icon: "alert", keywords: "affecter" },
+  { label: "Veille automatique (textes du JORT à valider)", href: "/dashboard/veille", icon: "sparkle", keywords: "jort brouillons ia collecte iort" },
   { label: "Référentiel", href: "/dashboard/referentiel", icon: "library", keywords: "secteurs thèmes types" },
   { label: "Administrateurs", href: "/dashboard/admins", icon: "users", keywords: "comptes igts" },
 ];

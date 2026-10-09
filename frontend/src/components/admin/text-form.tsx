@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Button, Card, Field, Input, Select, Textarea } from "../ui";
 import { Icon } from "../icons";
 import { FormError } from "./fields";
@@ -38,6 +38,8 @@ export function TextForm({
   onSubmit,
   note,
   showNotify,
+  secondary,
+  footerStart,
 }: {
   initial: TextFormValue;
   currentPdf?: string | null;
@@ -46,20 +48,23 @@ export function TextForm({
   note?: string;
   /** Editing an existing text: offer to notify the companies that follow it */
   showNotify?: boolean;
+  /** A second action that also sends the form (e.g. save a draft without publishing) */
+  secondary?: { label: string; onSubmit: (form: FormData) => Promise<void> };
+  /** Replaces the note on the left of the footer */
+  footerStart?: ReactNode;
 }) {
   const { data: ref } = useApi<ReferenceData>("/admin/reference");
   const [v, setV] = useState(initial);
   const [pdf, setPdf] = useState<File | null>(null);
   const [notify, setNotify] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState<"main" | "secondary" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const set = (k: keyof TextFormValue) => (e: { target: { value: string } }) => setV({ ...v, [k]: e.target.value });
 
   const themes = ref?.secteurs.find((s) => String(s.id) === v.secteurId)?.themes ?? [];
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
+  const send = async (which: "main" | "secondary") => {
     setError(null);
     if (pdf && pdf.size > 20 * 1024 * 1024) {
       setError("Le PDF ne doit pas dépasser 20 Mo.");
@@ -69,14 +74,19 @@ export function TextForm({
     for (const [k, val] of Object.entries(v)) fd.append(k, val);
     if (pdf) fd.append("pdf", pdf);
     if (showNotify) fd.append("notifyCompanies", String(notify));
-    setSaving(true);
+    setSaving(which);
     try {
-      await onSubmit(fd);
+      await (which === "main" ? onSubmit(fd) : secondary!.onSubmit(fd));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Enregistrement impossible.");
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
+  };
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    void send("main");
   };
 
   return (
@@ -177,11 +187,28 @@ export function TextForm({
               Prévenir les entreprises qui suivent ce texte
             </label>
           ) : (
-            <p className="text-[13px] text-ink-500">{note}</p>
+            footerStart ?? <p className="text-[13px] text-ink-500">{note}</p>
           )}
-          <Button type="submit" loading={saving}>
-            {submitLabel}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {secondary && (
+              <Button
+                type="button"
+                variant="secondary"
+                loading={saving === "secondary"}
+                disabled={saving !== null}
+                onClick={(e) => {
+                  const form = (e.currentTarget as HTMLButtonElement).form;
+                  if (form && !form.reportValidity()) return;
+                  void send("secondary");
+                }}
+              >
+                {secondary.label}
+              </Button>
+            )}
+            <Button type="submit" loading={saving === "main"} disabled={saving !== null}>
+              {submitLabel}
+            </Button>
+          </div>
         </div>
       </Card>
     </form>

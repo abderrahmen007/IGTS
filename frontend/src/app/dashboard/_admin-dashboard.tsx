@@ -69,9 +69,10 @@ function IgtsNextStep({ data }: { data: AdminOverview }) {
   let secondary: { href: string; label: string } | null = null;
 
   if (todo.drafts > 0) {
-    title = `${plural(todo.drafts, "brouillon attend", "brouillons attendent")} votre validation`;
-    body = "Relisez les textes préparés automatiquement, corrigez-les si besoin, puis publiez-les : les entreprises abonnées sont prévenues.";
-    cta = { href: "/dashboard/texts", label: "Voir les brouillons" };
+    eyebrow = "Veille automatique";
+    title = `${plural(todo.drafts, "texte du JORT attend", "textes du JORT attendent")} votre validation`;
+    body = "L’IA les a repérés dans le Journal officiel, classés et résumés. Relisez-les, puis publiez : les entreprises abonnées sont prévenues.";
+    cta = { href: "/dashboard/veille", label: "Valider les textes" };
   } else if (todo.unassignedTexts > 0) {
     title = `${plural(todo.unassignedTexts, "texte n’est distribué", "textes ne sont distribués")} à aucune entreprise`;
     body = "Vérifiez leur secteur et leur thème, ou affectez-les à la main aux entreprises concernées.";
@@ -217,11 +218,12 @@ export function AdminDashboard() {
           sub="Il part aux entreprises abonnées"
         />
         <ServiceTile
-          href="/dashboard/referentiel"
-          gem="bg-ok-600 text-white"
-          icon="library"
-          label="Référentiel"
-          sub="Secteurs, thèmes et types"
+          href="/dashboard/veille"
+          gem="bg-brand-600 text-white"
+          icon="sparkle"
+          value={data ? data.todo.drafts : null}
+          label="À valider"
+          sub="textes du JORT préparés par l’IA"
         />
       </section>
 

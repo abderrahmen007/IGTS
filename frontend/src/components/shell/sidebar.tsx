@@ -10,8 +10,9 @@ import { initials } from "@/lib/format";
 import { useLive } from "../live-context";
 import { useTour } from "../tour";
 import { ShinyText } from "../reactbits/shiny-text";
+import { useVeillePending } from "@/lib/veille-pending";
 
-type BadgeKind = "toEvaluate" | "actions";
+type BadgeKind = "toEvaluate" | "actions" | "drafts";
 
 interface NavItem {
   href: string;
@@ -39,6 +40,7 @@ const NAV: Record<AccountType, { title?: string; items: NavItem[] }[]> = {
         { href: "/dashboard", label: "Tableau de bord", icon: "grid" },
         { href: "/dashboard/companies", label: "Entreprises", icon: "building" },
         { href: "/dashboard/texts", label: "Textes réglementaires", icon: "library" },
+        { href: "/dashboard/veille", label: "Veille automatique", icon: "sparkle", badge: "drafts" },
       ],
     },
     {
@@ -51,8 +53,23 @@ const NAV: Record<AccountType, { title?: string; items: NavItem[] }[]> = {
   ],
 };
 
+/** Drafts of the daily JORT collection waiting for an administrator. */
+function DraftsBadge() {
+  const pending = useVeillePending(true);
+  if (!pending) return null;
+  return (
+    <span
+      title={`${pending} texte(s) à valider`}
+      className="tabular flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-saffron-500 px-1.5 text-xs font-bold text-ink-900"
+    >
+      {pending > 99 ? "99+" : pending}
+    </span>
+  );
+}
+
 function NavBadge({ kind }: { kind: BadgeKind }) {
   const live = useLive();
+  if (kind === "drafts") return <DraftsBadge />;
   const s = live?.stats;
   if (!s) return null;
   if (kind === "toEvaluate") {
