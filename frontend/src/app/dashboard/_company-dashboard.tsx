@@ -217,7 +217,10 @@ export function CompanyDashboard() {
             <p className="max-w-[640px] text-[15.5px] leading-relaxed text-ink-600">{summary}</p>
           )}
         </div>
-        <span className="glass inline-flex items-center gap-2.5 self-start rounded-full px-3.5 py-2 text-[13px] text-ink-600 sm:self-auto">
+        <span
+          data-tour="live-status"
+          className="glass inline-flex items-center gap-2.5 self-start rounded-full px-3.5 py-2 text-[13px] text-ink-600 sm:self-auto"
+        >
           <span
             className={cn(
               "h-2 w-2 rounded-full",
@@ -240,6 +243,7 @@ export function CompanyDashboard() {
           sub={s?.toAnalyse === 1 ? "texte en attente" : "textes en attente"}
         />
         <ServiceTile
+          dataTour="actions-tile"
           href="/dashboard/actions"
           gem={s && s.overdueActions > 0 ? "bg-coral-600 text-white" : "bg-brand-600 text-white"}
           icon="listChecks"

@@ -33,33 +33,45 @@ interface Step {
 
 const STEPS: Step[] = [
   {
+    target: "live-status",
+    title: "Veille JORT automatisée à 8h30",
+    body: "Chaque matin, notre robot scrute le JORT officiel tunisien. Les nouveaux textes sont extraits, pré-analysés par l'IA et intégrés en direct dans votre veille dès validation.",
+    place: "bottom",
+  },
+  {
     target: "services",
     title: "Vos services essentiels",
-    body: "Ces quatre tuiles mènent à ce qui compte : les textes à évaluer, votre plan d’action, l’assistant et toute votre veille. Le chiffre vous dit s’il y a du travail.",
+    body: "Ces quatre tuiles mènent à ce qui compte : les textes à évaluer, votre plan d’action QHSE, l’assistant juridique et l'ensemble de votre fonds réglementaire.",
     place: "bottom",
   },
   {
     target: "next-step",
-    title: "Commencez toujours ici",
-    body: "La carte indigo vous indique la prochaine chose à faire. Un clic, et l’évaluation guidée vous pose trois questions simples.",
+    title: "Évaluation & Analyse d’impact IA",
+    body: "Commencez ici : sur chaque texte, le nouveau bouton « Analyser l'impact IA » croise le décret avec le profil de votre entreprise (secteur, ateliers, effectifs) pour en déduire l'applicabilité exacte.",
     place: "left",
   },
   {
+    target: "actions-tile",
+    title: "Plan d’action assisté par l’IA",
+    body: "Pilotez vos actions correctives en toute simplicité. Le bouton « Suggérer des actions avec l'IA » vous propose instantanément des plans d'action complets (responsable, échéance et livrables concrets).",
+    place: "bottom",
+  },
+  {
     target: "compliance",
-    title: "Votre taux de conformité",
-    body: "L’anneau montre la part de textes en règle parmi ceux qui vous concernent. Il bouge en direct à chaque texte mis en règle.",
+    title: "Votre taux de conformité en direct",
+    body: "L’anneau montre la part de textes en règle parmi ceux qui vous concernent. Il se recalcule en temps réel à chaque évaluation enregistrée et chaque action réalisée.",
     place: "bottom",
   },
   {
     target: "assistant",
-    title: "Une question ? L’assistant",
-    body: "Il répond à partir des textes de votre veille uniquement, et cite ses sources. Il reste en bas à droite, sur toutes les pages.",
+    title: "Assistant IA & Recherche Sémantique (RAG)",
+    body: "Une question juridique ou QHSE ? L'assistant s'appuie désormais sur des embeddings vectoriels sémantiques pour retrouver précisément les articles de lois pertinents et citer ses sources officielles.",
     place: "top",
   },
   {
     target: "help",
-    title: "Votre profil et cette visite",
-    body: "Cliquez sur vos initiales pour voir votre profil et vos préférences d’e-mail. « Visite guidée » relance cette visite quand vous le souhaitez.",
+    title: "Profil, API Swagger & Paramètres",
+    body: "Personnalisez vos préférences et explorez notre API REST interactive via Swagger (/api/docs) pour synchroniser vos outils d'entreprise. Vous pouvez relancer cette visite guidée quand vous le souhaitez.",
     place: "bottom",
   },
 ];
@@ -301,12 +313,12 @@ export function TourProvider({ children }: { children: ReactNode }) {
                 </span>
               )}
               <h2 id="tour-title" className="font-serif text-[30px] font-semibold leading-tight text-ink-900">
-                {phase === "welcome" ? "Bienvenue sur la nouvelle IGTS Veille" : "Vous êtes prêt"}
+                {phase === "welcome" ? "Bienvenue sur la nouvelle IGTS Veille" : "Vous êtes prêt !"}
               </h2>
-              <p className="max-w-[420px] text-[15.5px] leading-relaxed text-ink-600">
+              <p className="max-w-[440px] text-[15.5px] leading-relaxed text-ink-600">
                 {phase === "welcome"
-                  ? "En une minute, découvrez où trouver l’essentiel. Vous pourrez revoir cette visite à tout moment."
-                  : "Commencez par vos textes à évaluer. Si vous êtes perdu, le bouton « Visite guidée », en haut de l’écran, relance cette visite."}
+                  ? "Découvrez en 1 minute les nouvelles fonctionnalités : veille automatisée du JORT à 8h30, analyse d'impact par IA, plan d'action intelligent et assistant juridique vectoriel."
+                  : "Explorez vos textes réglementaires, lancez l'analyse d'impact IA ou posez vos questions à l'assistant. Vous pouvez relancer cette visite à tout moment."}
               </p>
               <div className="mt-2 flex flex-col-reverse gap-2.5 sm:flex-row">
                 {phase === "welcome" ? (

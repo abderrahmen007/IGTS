@@ -20,6 +20,7 @@ export function ServiceTile({
   value,
   label,
   sub,
+  dataTour,
 }: {
   href?: string;
   onClick?: () => void;
@@ -28,6 +29,7 @@ export function ServiceTile({
   value?: string | number | null;
   label: string;
   sub: string;
+  dataTour?: string;
 }) {
   const inner = (
     <>
@@ -57,11 +59,11 @@ export function ServiceTile({
   );
   const cls = "glass lift spotlight group flex min-h-28 flex-col justify-between gap-3 rounded-[18px] p-3.5 text-ink-900 sm:min-h-32 sm:gap-4 sm:rounded-[20px] sm:p-[18px]";
   return href ? (
-    <Link href={href} className={cls} {...spotlight()}>
+    <Link href={href} data-tour={dataTour} className={cls} {...spotlight()}>
       {inner}
     </Link>
   ) : (
-    <button type="button" onClick={onClick} className={cls} {...spotlight()}>
+    <button type="button" data-tour={dataTour} onClick={onClick} className={cls} {...spotlight()}>
       {inner}
     </button>
   );
