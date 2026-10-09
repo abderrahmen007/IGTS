@@ -24,72 +24,8 @@ import { scrollToTop } from "@/components/smooth-scroll";
 import { useApi } from "@/lib/use-api";
 import { useDebounced, useUrlState } from "@/lib/use-url-state";
 import { formatDate, formatNumber } from "@/lib/format";
-import { STATUS_OPTIONS } from "@/lib/status";
+import { STATUS_OPTIONS, getDomainTheme } from "@/lib/status";
 import type { CompanyFilters, CompanyOverview, Paginated, TextListItem } from "@/lib/types";
-
-interface DomainTheme {
-  dot: string;
-  active: string;
-  inactive: string;
-}
-
-function getDomainTheme(name: string): DomainTheme {
-  const n = name.toLowerCase();
-  if (n.includes("energie") || n.includes("énergie")) {
-    return {
-      dot: "bg-saffron-500",
-      active: "bg-saffron-500 text-ink-950 font-bold shadow-sm ring-1 ring-saffron-500",
-      inactive:
-        "border border-saffron-200/90 bg-saffron-50/60 text-saffron-800 hover:bg-saffron-100 hover:border-saffron-400",
-    };
-  }
-  if (n.includes("environnement")) {
-    return {
-      dot: "bg-ok-600",
-      active: "bg-ok-600 text-white font-bold shadow-sm ring-1 ring-ok-600",
-      inactive:
-        "border border-ok-200/90 bg-ok-50/60 text-ok-800 hover:bg-ok-100 hover:border-ok-400",
-    };
-  }
-  if (n.includes("qualité")) {
-    return {
-      dot: "bg-brand-600",
-      active: "bg-brand-700 text-white font-bold shadow-sm ring-1 ring-brand-700",
-      inactive:
-        "border border-brand-200/90 bg-brand-50/60 text-brand-800 hover:bg-brand-100 hover:border-brand-400",
-    };
-  }
-  if (n.includes("santé") || n.includes("sécurité")) {
-    return {
-      dot: "bg-coral-600",
-      active: "bg-coral-600 text-white font-bold shadow-sm ring-1 ring-coral-600",
-      inactive:
-        "border border-coral-200/90 bg-coral-50/60 text-coral-800 hover:bg-coral-100 hover:border-coral-400",
-    };
-  }
-  if (n.includes("social")) {
-    return {
-      dot: "bg-info-600",
-      active: "bg-info-600 text-white font-bold shadow-sm ring-1 ring-info-600",
-      inactive:
-        "border border-info-200/90 bg-info-50/60 text-info-800 hover:bg-info-100 hover:border-info-400",
-    };
-  }
-  if (n.includes("agroalimentaire")) {
-    return {
-      dot: "bg-saffron-600",
-      active: "bg-saffron-600 text-white font-bold shadow-sm ring-1 ring-saffron-600",
-      inactive:
-        "border border-saffron-200/90 bg-saffron-50/60 text-saffron-800 hover:bg-saffron-100 hover:border-saffron-400",
-    };
-  }
-  return {
-    dot: "bg-ink-400",
-    active: "bg-brand-900 text-white font-bold shadow-sm ring-1 ring-brand-900",
-    inactive:
-      "border border-ink-200/90 bg-white text-ink-700 hover:border-brand-300 hover:text-brand-900",
-  };
-}
 
 const KEYS = ["search", "status", "secteurId", "typeId", "page"] as const;
 
@@ -275,7 +211,16 @@ function MyTextsView() {
                       </p>
                       <p className="mt-1 line-clamp-1 text-[13px] text-ink-600">{t.excerpt}</p>
                     </td>
-                    <td className={cn(td, "hidden text-ink-700 lg:table-cell")}>{t.secteur?.name ?? "—"}</td>
+                    <td className={cn(td, "hidden text-ink-700 lg:table-cell")}>
+                      {t.secteur?.name ? (
+                        <span className="inline-flex items-center gap-1.5 font-medium">
+                          <span className={cn("h-2 w-2 shrink-0 rounded-full", getDomainTheme(t.secteur.name).dot)} />
+                          {t.secteur.name}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className={td}>
                       <span className="flex flex-wrap gap-1.5">
                         <StatusBadge applicabilite={t.applicabilite} etat={t.etat} />

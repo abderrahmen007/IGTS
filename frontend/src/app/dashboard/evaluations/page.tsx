@@ -19,6 +19,7 @@ import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { useDebounced } from "@/lib/use-url-state";
 import { formatNumber, plural } from "@/lib/format";
+import { getDomainTheme } from "@/lib/status";
 import { cn } from "@/lib/utils";
 import type { CompanyFilters, Paginated, TextDetail, TextListItem } from "@/lib/types";
 
@@ -82,7 +83,18 @@ function TextPicker({
                   <Icon name="file" size={18} className="mt-0.5 shrink-0 self-start text-ink-500" />
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="line-clamp-2 font-medium leading-snug">{t.titre}</span>
-                    <span className="truncate text-xs text-ink-500">{subline(t)}</span>
+                    <span className="flex items-center gap-1.5 truncate text-xs text-ink-500">
+                      <span>{[t.type?.name, t.date].filter(Boolean).join(" · ")}</span>
+                      {t.secteur?.name && (
+                        <>
+                          <span>·</span>
+                          <span className="inline-flex items-center gap-1 font-medium text-ink-700">
+                            <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", getDomainTheme(t.secteur.name).dot)} />
+                            {t.secteur.name}
+                          </span>
+                        </>
+                      )}
+                    </span>
                   </span>
                   {t.id === currentId && <span className="shrink-0 text-xs font-semibold text-brand-700">En cours</span>}
                 </CommandItem>
@@ -136,21 +148,40 @@ function PendingList({ onPick }: { onPick: (id: number) => void }) {
       <div className="flex flex-col gap-3 border-b border-ink-150 px-5 py-4">
         <SearchInput value={search} onChange={setSearch} placeholder="Rechercher un titre, un numéro, un mot-clé…" className="md:max-w-md" />
         {filters && filters.secteurs.length > 1 && (
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Domaine">
-            {[{ id: "", name: "Tous les domaines" }, ...filters.secteurs.map((s) => ({ id: String(s.id), name: s.name }))].map((s) => (
-              <button
-                key={s.id || "all"}
-                type="button"
-                aria-pressed={secteurId === s.id}
-                onClick={() => setSecteurId(s.id)}
-                className={cn(
-                  "h-9 rounded-full border px-3.5 text-[13px] font-semibold transition-colors",
-                  secteurId === s.id ? "border-brand-800 bg-brand-800 text-white" : "border-ink-200 bg-white text-ink-700 hover:border-ink-300",
-                )}
-              >
-                {s.name}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none" role="group" aria-label="Domaine">
+            {[{ id: "", name: "Tous les domaines" }, ...filters.secteurs.map((s) => ({ id: String(s.id), name: s.name }))].map((s) => {
+              const active = secteurId === s.id;
+              const isAll = s.id === "";
+              const theme = getDomainTheme(s.name);
+              return (
+                <button
+                  key={s.id || "all"}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setSecteurId(active && !isAll ? "" : s.id)}
+                  className={cn(
+                    "inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-1.5 text-[13.5px] font-semibold transition-all duration-150",
+                    isAll
+                      ? active
+                        ? "bg-brand-900 text-white shadow-sm ring-1 ring-brand-900"
+                        : "border border-ink-200/90 bg-white text-ink-700 hover:border-ink-400 hover:text-ink-900"
+                      : active
+                        ? theme.active
+                        : theme.inactive,
+                  )}
+                >
+                  {!isAll && (
+                    <span
+                      className={cn(
+                        "h-2 w-2 shrink-0 rounded-full transition-colors",
+                        active ? (theme.dot.includes("saffron") ? "bg-ink-900" : "bg-white") : theme.dot,
+                      )}
+                    />
+                  )}
+                  {s.name}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -170,12 +201,28 @@ function PendingList({ onPick }: { onPick: (id: number) => void }) {
               onClick={() => onPick(t.id)}
               className="group flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-paper"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-saffron-100 text-saffron-700">
+              <span
+                className={cn(
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                  t.secteur?.name ? getDomainTheme(t.secteur.name).badge : "bg-saffron-100 text-saffron-700",
+                )}
+              >
                 <Icon name="inbox" size={19} strokeWidth={1.8} />
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="line-clamp-2 text-[15px] font-semibold leading-snug text-ink-900 group-hover:text-brand-700">{t.titre}</span>
-                <span className="truncate text-[13px] text-ink-500">{subline(t)}</span>
+                <span className="flex items-center gap-1.5 truncate text-[13px] text-ink-500">
+                  <span>{[t.type?.name, t.date].filter(Boolean).join(" · ")}</span>
+                  {t.secteur?.name && (
+                    <>
+                      <span>·</span>
+                      <span className="inline-flex items-center gap-1 font-medium text-ink-700">
+                        <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", getDomainTheme(t.secteur.name).dot)} />
+                        {t.secteur.name}
+                      </span>
+                    </>
+                  )}
+                </span>
               </span>
               <span className="hidden shrink-0 sm:block">
                 <StatusBadge applicabilite={t.applicabilite} etat={t.etat} />

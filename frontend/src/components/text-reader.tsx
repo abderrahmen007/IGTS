@@ -6,6 +6,7 @@ import { Badge, Button, cn } from "./ui";
 import { Modal, useToast } from "./overlay";
 import { openAssistant } from "@/lib/assistant";
 import { api, ApiError } from "@/lib/api";
+import { getDomainTheme } from "@/lib/status";
 import type { AiImpactResponse, TextDetail } from "@/lib/types";
 
 function AiImpactModal({
@@ -196,15 +197,26 @@ export function TextReader({ detail, clamp = false }: { detail: TextDetail; clam
   const [impactOpen, setImpactOpen] = useState(false);
   const long = t.description.length > 900;
 
-  const chips = [t.journal, t.date, [t.secteur?.name, t.theme?.name].filter(Boolean).join(" › ")].filter(Boolean);
+  const otherChips = [t.journal, t.date].filter(Boolean);
 
   return (
     <article className="flex min-w-0 flex-col gap-5 rounded-[22px] border border-ink-200/80 bg-white px-6 py-7 sm:px-9">
-      <div className="flex flex-wrap gap-2 text-[12.5px]">
+      <div className="flex flex-wrap items-center gap-2 text-[12.5px]">
         {t.type?.name && (
           <span className="rounded-md bg-brand-50 px-2.5 py-[3px] font-semibold text-brand-800">{t.type.name}</span>
         )}
-        {chips.map((c) => (
+        {t.secteur?.name && (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md px-2.5 py-[3px] text-[12px] font-semibold",
+              getDomainTheme(t.secteur.name).badge,
+            )}
+          >
+            <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", getDomainTheme(t.secteur.name).dot)} />
+            {[t.secteur.name, t.theme?.name].filter(Boolean).join(" › ")}
+          </span>
+        )}
+        {otherChips.map((c) => (
           <span key={c} className="rounded-md bg-paper px-2.5 py-[3px] text-ink-600">
             {c}
           </span>
