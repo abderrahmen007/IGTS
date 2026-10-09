@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsEmail,
   IsIn,
   IsInt,
   IsISO8601,
@@ -156,4 +157,53 @@ export class PreferencesDto {
   /** true = tour finished or skipped now, false = show it again */
   @IsOptional() @IsBoolean()
   tourSeen?: boolean;
+}
+
+// ─── Team (managed by the main account) ──────────────────────────────
+
+export class CreateTeamMemberDto {
+  @IsString() @MinLength(2) @MaxLength(255)
+  nom!: string;
+
+  @IsEmail({}, { message: 'Adresse e-mail invalide' }) @MaxLength(180)
+  email!: string;
+
+  @IsOptional() @IsString() @MaxLength(255)
+  fonction?: string;
+
+  @IsOptional() @IsString() @MaxLength(50)
+  tel?: string;
+
+  /** true = « Lecture et modification », false = « Lecture seule » */
+  @IsBoolean()
+  canEdit!: boolean;
+
+  @IsString() @MinLength(8, { message: 'Le mot de passe doit contenir au moins 8 caractères' }) @MaxLength(200)
+  password!: string;
+}
+
+export class UpdateTeamMemberDto {
+  @IsOptional() @IsString() @MinLength(2) @MaxLength(255)
+  nom?: string;
+
+  @IsOptional() @IsEmail({}, { message: 'Adresse e-mail invalide' }) @MaxLength(180)
+  email?: string;
+
+  @IsOptional() @IsString() @MaxLength(255)
+  fonction?: string;
+
+  @IsOptional() @IsString() @MaxLength(50)
+  tel?: string;
+
+  @IsOptional() @IsBoolean()
+  canEdit?: boolean;
+
+  /** false = account deactivated: login refused, data kept */
+  @IsOptional() @IsBoolean()
+  active?: boolean;
+}
+
+export class ResetMemberPasswordDto {
+  @IsString() @MinLength(8, { message: 'Le mot de passe doit contenir au moins 8 caractères' }) @MaxLength(200)
+  password!: string;
 }

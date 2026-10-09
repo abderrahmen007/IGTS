@@ -15,20 +15,24 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { CompanyOnlyGuard, CurrentUser, EditorGuard } from '../common/auth-user';
+import { CompanyOnlyGuard, CurrentUser, EditorGuard, MainAccountGuard } from '../common/auth-user';
 import type { AuthUser } from '../common/auth-user';
 import { MAX_PROOF_SIZE, MAX_PROOFS_PER_UPLOAD } from '../files/files.service';
 import type { UploadedFile } from '../files/files.service';
 import { CompanyService } from './company.service';
+import { TeamService } from './team.service';
 import {
   ChangePasswordDto,
   CreateActionDto,
+  CreateTeamMemberDto,
   EvaluateTextDto,
   ListActionsQuery,
   ListTextsQuery,
   PreferencesDto,
+  ResetMemberPasswordDto,
   UpdateActionDto,
   UpdateProfileDto,
+  UpdateTeamMemberDto,
 } from './company.dto';
 
 const proofUpload = FilesInterceptor('files', MAX_PROOFS_PER_UPLOAD, { limits: { fileSize: MAX_PROOF_SIZE } });
@@ -41,7 +45,10 @@ const proofUpload = FilesInterceptor('files', MAX_PROOFS_PER_UPLOAD, { limits: {
 @UseGuards(AuthGuard('jwt'), CompanyOnlyGuard)
 @Controller('company')
 export class CompanyController {
-  constructor(private readonly service: CompanyService) {}
+  constructor(
+    private readonly service: CompanyService,
+    private readonly teamService: TeamService,
+  ) {}
 
   @Get('overview')
   overview(@CurrentUser() user: AuthUser) {
@@ -90,6 +97,12 @@ export class CompanyController {
     @Body() dto: CreateActionDto,
   ) {
     return this.service.createAction(user, id, dto);
+  }
+
+  /** Figures of the « Statistiques » tab of the action plan. */
+  @Get('actions/stats')
+  actionStats(@CurrentUser() user: AuthUser) {
+    return this.service.actionStats(user);
   }
 
   @Get('actions')
@@ -160,6 +173,34 @@ export class CompanyController {
   @Get('team')
   team(@CurrentUser() user: AuthUser) {
     return this.service.team(user);
+  }
+
+  /** The main account creates an account for an employee and sets its rights. */
+  @UseGuards(MainAccountGuard)
+  @Post('team')
+  createMember(@CurrentUser() user: AuthUser, @Body() dto: CreateTeamMemberDto) {
+    return this.teamService.create(user, dto);
+  }
+
+  @UseGuards(MainAccountGuard)
+  @Patch('team/:id')
+  updateMember(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateTeamMemberDto,
+  ) {
+    return this.teamService.update(user, id, dto);
+  }
+
+  @UseGuards(MainAccountGuard)
+  @Post('team/:id/password')
+  @HttpCode(200)
+  resetMemberPassword(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ResetMemberPasswordDto,
+  ) {
+    return this.teamService.resetPassword(user, id, dto);
   }
 
   // ─── Notifications ─────────────────────────────────────────────────

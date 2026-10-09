@@ -3,7 +3,7 @@ import { hashPassword } from '../common/password';
 import { PrismaService } from '../prisma/prisma.service';
 import { AssignmentService } from './assignment.service';
 import { CompanyService, computeStats } from '../company/company.service';
-import { canEditFromRights, DROIT_TOUS } from '../common/auth-user';
+import { canEditFromRights, DROIT_LECTURE, DROIT_TOUS } from '../common/auth-user';
 import type { AuthUser } from '../common/auth-user';
 import type { ListTextsQuery } from '../company/company.dto';
 import {
@@ -16,8 +16,6 @@ import {
 } from './admin.dto';
 
 const hash = hashPassword;
-/** Legacy `droitaccee` id 5 (empty label) = read-only, as created by Symfony. */
-const DROIT_LECTURE = 5;
 const clean = (v?: string | null) => (v?.trim() ? v.trim() : null);
 
 @Injectable()

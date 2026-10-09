@@ -10,7 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { FilesService, UploadedFile, joinFiles, splitFiles } from '../files/files.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PreferencesService } from '../preferences/preferences.service';
-import { AuthUser, canEditFromRights } from '../common/auth-user';
+import { AuthUser, canEditFromRights, isMainAccount } from '../common/auth-user';
 import { hashPassword, verifyPassword } from '../common/password';
 import { clampPage, htmlToText, parseFrenchDate, toFrenchDate } from '../common/text-utils';
 import {
@@ -623,6 +623,123 @@ export class CompanyService {
     };
   }
 
+  /**
+   * Figures of the « Statistiques » tab of the action plan. Only actions on
+   * texts that still need them are counted (see LIVE_ACTIONS_TEXT).
+   */
+  async actionStats(user: AuthUser) {
+    const [live, lk] = await Promise.all([this.liveTexts(user), this.lookups()]);
+    const liveById = new Map(live.map((t) => [t.id, t]));
+    const actions = await this.prisma.plusaction.findMany({
+      where: { texteSocieteId: { in: [...liveById.keys()] } },
+    });
+    // When an action became "Efficace": first history row with that status
+    const history = await this.prisma.historiqueAction.findMany({
+      where: { plusactionId: { in: actions.map((a) => a.id) }, gestionactionId: ACTION_EFFICACE },
+      select: { plusactionId: true, createdAt: true, datequifairaction: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    const effectiveAt = new Map<number, Date>();
+    for (const h of history) {
+      const at = h.createdAt ?? h.datequifairaction;
+      if (h.plusactionId && at && !effectiveAt.has(h.plusactionId)) effectiveAt.set(h.plusactionId, at);
+    }
+    const secteurName = new Map(lk.secteurs.map((s) => [s.id, s.name ?? '']));
+    const isoDate = (iso: string | null) => (iso ? new Date(`${iso}T00:00:00`) : null);
+
+    const rows = actions.map((a) => {
+      const status = a.gestionactionId ?? ACTION_EN_COURS;
+      const open = OPEN_ACTION_STATES.includes(status);
+      const done = status === ACTION_EFFICACE;
+      const eff = a.courrielResponsable != null ? parseInt(a.courrielResponsable, 10) : NaN;
+      const ts = liveById.get(a.texteSocieteId!);
+      const deadline = isoDate(parseFrenchDate(a.cloture));
+      const doneAt = done ? effectiveAt.get(a.id) ?? a.datequifairaction ?? null : null;
+      const responsable = (a.responsableAction ?? '').replace(/\s+/g, ' ').trim();
+      return {
+        status,
+        open,
+        done,
+        dueIn: daysUntil(a.cloture),
+        progress: Number.isFinite(eff) ? Math.max(0, Math.min(100, eff)) : done ? 100 : 0,
+        secteur: ts?.secteurId ? secteurName.get(ts.secteurId) || 'Autre' : 'Autre',
+        responsable: responsable || 'Non attribué',
+        createdAt: a.createdAt ?? isoDate(parseFrenchDate(a.dateouverture)),
+        deadline,
+        doneAt,
+      };
+    });
+
+    const open = rows.filter((r) => r.open);
+    const done = rows.filter((r) => r.done);
+    const doneWithDates = done.filter((r) => r.deadline && r.doneAt);
+    const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : null);
+
+    const group = (key: 'secteur' | 'responsable') => {
+      const by = new Map<string, { name: string; open: number; overdue: number; done: number }>();
+      for (const r of rows) {
+        const k = r[key].toLocaleLowerCase('fr');
+        if (!by.has(k)) by.set(k, { name: r[key], open: 0, overdue: 0, done: 0 });
+        const g = by.get(k)!;
+        if (r.open) g.open++;
+        if (r.open && r.dueIn !== null && r.dueIn < 0) g.overdue++;
+        if (r.done) g.done++;
+      }
+      return [...by.values()].sort((a, b) => b.open + b.done - (a.open + a.done));
+    };
+
+    // Months, oldest first: the last 12 for the activity, the next 6 for deadlines
+    const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const monthLabel = new Intl.DateTimeFormat('fr-FR', { month: 'short', year: '2-digit' });
+    const now = new Date();
+    const months = (from: number, count: number) =>
+      Array.from({ length: count }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() + from + i, 1);
+        return { key: monthKey(d), label: monthLabel.format(d) };
+      });
+
+    const activity = months(-11, 12).map((m) => ({
+      month: m.key,
+      label: m.label,
+      opened: rows.filter((r) => r.createdAt && monthKey(r.createdAt) === m.key).length,
+      done: rows.filter((r) => r.doneAt && monthKey(r.doneAt) === m.key).length,
+    }));
+    const deadlines = months(0, 6).map((m) => ({
+      month: m.key,
+      label: m.label,
+      count: open.filter((r) => r.deadline && r.dueIn !== null && r.dueIn >= 0 && monthKey(r.deadline) === m.key).length,
+    }));
+
+    return {
+      totals: {
+        total: rows.length,
+        open: open.length,
+        done: done.length,
+        overdue: open.filter((r) => r.dueIn !== null && r.dueIn < 0).length,
+        dueSoon: open.filter((r) => r.dueIn !== null && r.dueIn >= 0 && r.dueIn <= 30).length,
+        noDeadline: open.filter((r) => r.dueIn === null).length,
+        averageProgress: open.length ? Math.round(open.reduce((n, r) => n + r.progress, 0) / open.length) : null,
+        completionRate: pct(done.length, rows.length),
+        onTimeRate: pct(doneWithDates.filter((r) => r.doneAt! <= r.deadline!).length, doneWithDates.length),
+      },
+      byStatus: lk.actionStates.map((s) => ({
+        id: s.id,
+        name: s.name ?? '',
+        count: rows.filter((r) => r.status === s.id).length,
+      })),
+      progress: [
+        { label: '0 %', count: open.filter((r) => r.progress === 0).length },
+        { label: '1 – 49 %', count: open.filter((r) => r.progress > 0 && r.progress < 50).length },
+        { label: '50 – 99 %', count: open.filter((r) => r.progress >= 50 && r.progress < 100).length },
+        { label: '100 %', count: open.filter((r) => r.progress === 100).length },
+      ],
+      bySecteur: group('secteur'),
+      byResponsable: group('responsable').slice(0, 8),
+      activity,
+      deadlines,
+    };
+  }
+
   async createAction(user: AuthUser, texteSocieteId: number, dto: CreateActionDto) {
     const ts = await this.findOwned(user, texteSocieteId);
     const reason = actionBlockReason(ts);
@@ -768,6 +885,9 @@ export class CompanyService {
       company: owner?.raisonsociale || owner?.nom || '',
       isSubAccount: me.multicompte > 0,
       canEdit: user.canEdit,
+      /** Only the main account changes its own password and manages the team */
+      canChangePassword: isMainAccount(user),
+      canManageTeam: isMainAccount(user),
       memberSince: me.createdAt,
       stats: { evaluatedThisMonth, openActionsCreated },
       secteurs: [...secteurs.entries()].map(([id, name]) => ({ id, name })),
@@ -789,6 +909,12 @@ export class CompanyService {
   }
 
   async changePassword(user: AuthUser, dto: ChangePasswordDto) {
+    // Secondary accounts' passwords are managed by the company's main account
+    if (!isMainAccount(user)) {
+      throw new ForbiddenException(
+        'Le mot de passe de ce compte est géré par le compte principal de votre entreprise.',
+      );
+    }
     const me = await this.prisma.company.findUnique({ where: { id: user.id }, select: { password: true } });
     if (!me || !(await verifyPassword(me.password, dto.current))) {
       throw new BadRequestException('Le mot de passe actuel est incorrect.');
@@ -815,17 +941,19 @@ export class CompanyService {
     const accounts = await this.prisma.company.findMany({
       where: { OR: [{ id: user.ownerId! }, { multicompte: user.ownerId! }], deleted: false },
       select: {
-        id: true, nom: true, email: true, fonction: true, multicompte: true,
+        id: true, nom: true, email: true, fonction: true, tel: true, multicompte: true,
         droitacceeId: true, activated: true, createdAt: true,
       },
       orderBy: [{ multicompte: 'asc' }, { nom: 'asc' }],
     });
     return {
+      canManage: isMainAccount(user),
       members: accounts.map((a) => ({
         id: a.id,
         nom: a.nom,
         email: a.email,
         fonction: a.fonction,
+        tel: a.tel,
         isMain: a.multicompte <= 0,
         canEdit: canEditFromRights(a.multicompte, a.droitacceeId),
         active: a.activated,

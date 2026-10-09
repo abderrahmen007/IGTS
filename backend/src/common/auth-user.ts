@@ -29,6 +29,11 @@ export interface AuthUser {
 
 /** Legacy `droitaccee` ids: 2 = "Tous les droits"; 1 and 5 = read-only. */
 export const DROIT_TOUS = 2;
+/** Read-only right as Symfony creates it (id 5, empty label). */
+export const DROIT_LECTURE = 5;
+
+/** The company's main account (not a sub-account / "compte secondaire"). */
+export const isMainAccount = (user: AuthUser) => user.type === 'company' && user.id === user.ownerId;
 
 /**
  * Same rule as the Symfony templates: the main account and sub-accounts whose
@@ -74,6 +79,18 @@ export class AdminOnlyGuard implements CanActivate {
     if (user?.type !== 'admin') {
       throw new ForbiddenException('Accès réservé aux administrateurs');
     }
+    return true;
+  }
+}
+
+export const MAIN_ACCOUNT_ONLY = 'Seul le compte principal de l’entreprise peut gérer les comptes de l’équipe.';
+
+/** Endpoints reserved to the company's main account (team management). */
+@Injectable()
+export class MainAccountGuard implements CanActivate {
+  canActivate(ctx: ExecutionContext): boolean {
+    const user: AuthUser | undefined = ctx.switchToHttp().getRequest().user;
+    if (!user || !isMainAccount(user)) throw new ForbiddenException(MAIN_ACCOUNT_ONLY);
     return true;
   }
 }

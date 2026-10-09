@@ -14,7 +14,7 @@ import {
   normaliseEvaluation,
   suggestsCompliance,
 } from './rules';
-import { canEditFromRights } from '../common/auth-user';
+import { DROIT_LECTURE, DROIT_TOUS, canEditFromRights, isMainAccount } from '../common/auth-user';
 
 describe('actions allowed (Symfony parity + evaluate first)', () => {
   const cases: [string, number, number | null, boolean][] = [
@@ -77,4 +77,15 @@ describe('sub-account rights', () => {
   it('empty right can edit (legacy: null)', () => expect(canEditFromRights(207, null)).toBe(true));
   it('"Annuler tous les droits" is read-only', () => expect(canEditFromRights(207, 1)).toBe(false));
   it('legacy id 5 is read-only', () => expect(canEditFromRights(207, 5)).toBe(false));
+});
+
+describe('team management (supervisor, 09/10)', () => {
+  const main = { id: 207, ownerId: 207, type: 'company' as const, email: '', nom: '', canEdit: true };
+  const sub = { ...main, id: 222 };
+  it('the main account manages the team', () => expect(isMainAccount(main)).toBe(true));
+  it('a secondary account does not', () => expect(isMainAccount(sub)).toBe(false));
+  it('an IGTS admin is not a company main account', () =>
+    expect(isMainAccount({ ...main, type: 'admin', ownerId: null })).toBe(false));
+  it('« Lecture et modification » gives edit rights', () => expect(canEditFromRights(207, DROIT_TOUS)).toBe(true));
+  it('« Lecture seule » is read-only', () => expect(canEditFromRights(207, DROIT_LECTURE)).toBe(false));
 });
