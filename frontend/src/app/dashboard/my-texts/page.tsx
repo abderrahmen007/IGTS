@@ -114,7 +114,7 @@ function MyTextsView() {
                 <span
                   className={cn(
                     "h-2 w-2 shrink-0 rounded-full transition-colors",
-                    active ? (theme.dot.includes("saffron") ? "bg-ink-900" : "bg-white") : theme.dot,
+                    active ? (theme.dot.includes("amber") ? "bg-amber-950" : "bg-white") : theme.dot,
                   )}
                 />
                 {s.name}
