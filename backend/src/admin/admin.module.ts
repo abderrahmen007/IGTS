@@ -20,5 +20,7 @@ import { AdminUsersService } from './users.service';
     ReferenceService,
     AdminUsersService,
   ],
+  // Used by the automatic watch to publish validated drafts like any new text
+  exports: [AdminTextsService],
 })
 export class AdminModule {}

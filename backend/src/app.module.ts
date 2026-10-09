@@ -7,6 +7,7 @@ import { CompanyModule } from './company/company.module';
 import { AdminModule } from './admin/admin.module';
 import { ChatbotModule } from './chatbot/chatbot.module';
 import { ScraperModule } from './scraper/scraper.module';
+import { VeilleStoreModule } from './scraper/veille-store.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { FilesModule } from './files/files.module';
 import { PreferencesModule } from './preferences/preferences.module';
@@ -17,6 +18,7 @@ import { PreferencesModule } from './preferences/preferences.module';
     ScheduleModule.forRoot(),
     PrismaModule,
     PreferencesModule,
+    VeilleStoreModule,
     NotificationsModule,
     FilesModule,
     AuthModule,

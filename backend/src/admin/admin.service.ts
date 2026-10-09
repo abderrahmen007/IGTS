@@ -1,10 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 import { clampPage } from '../common/text-utils';
 import { computeStats } from '../company/company.service';
+import { DraftsStore } from '../scraper/drafts.store';
 import {
   APPLICABILITE_NON_ANALYSEE,
   APPLICABLE,
@@ -15,23 +24,37 @@ import {
 } from '../company/rules';
 
 export class AdminListQuery {
-  @IsOptional() @IsString() @MaxLength(200)
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
   search?: string;
 
-  @IsOptional() @Type(() => Number) @IsInt()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
   secteurId?: number;
 
-  @IsOptional() @Type(() => Number) @IsInt()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
   typeId?: number;
 
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   page?: number;
 
-  @IsOptional() @Type(() => Number) @IsInt() @Min(5) @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(5)
+  @Max(100)
   pageSize?: number;
 
   /** Texts: only those no company receives yet ("1") */
-  @IsOptional() @IsIn(['1'])
+  @IsOptional()
+  @IsIn(['1'])
   unassigned?: string;
 }
 
@@ -39,7 +62,10 @@ const TS_ACTIVE: Prisma.TexteSocieteWhereInput = {
   OR: [{ deleted: false }, { deleted: null }],
   texte: { deleted: false },
 };
-const MAIN_COMPANY: Prisma.CompanyWhereInput = { deleted: false, multicompte: 0 };
+const MAIN_COMPANY: Prisma.CompanyWhereInput = {
+  deleted: false,
+  multicompte: 0,
+};
 /** Same definition as the company space's « À évaluer ». */
 const PENDING: Prisma.TexteSocieteWhereInput = {
   OR: [
@@ -51,7 +77,10 @@ const PENDING: Prisma.TexteSocieteWhereInput = {
 
 @Injectable()
 export class AdminService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private drafts: DraftsStore,
+  ) {}
 
   private async statsByCompany(companyIds: number[]) {
     const rows = await this.prisma.texteSociete.groupBy({
@@ -59,42 +88,66 @@ export class AdminService {
       where: { ...TS_ACTIVE, companyId: { in: companyIds } },
       _count: { _all: true },
     });
-    const by = new Map<number, { applicabiliteId: number; gestionetatId: number | null; count: number }[]>();
+    const by = new Map<
+      number,
+      { applicabiliteId: number; gestionetatId: number | null; count: number }[]
+    >();
     for (const r of rows) {
       if (!r.companyId) continue;
       if (!by.has(r.companyId)) by.set(r.companyId, []);
       by.get(r.companyId)!.push({ ...r, count: r._count._all });
     }
-    return new Map(companyIds.map((id) => [id, computeStats(by.get(id) ?? [])]));
+    return new Map(
+      companyIds.map((id) => [id, computeStats(by.get(id) ?? [])]),
+    );
   }
 
   async overview() {
     const since = new Date(Date.now() - 30 * 24 * 3600 * 1000);
-    const [companies, subAccounts, texts, textsLast30, assignments, grouped, recentCompanies, recentTexts] =
-      await Promise.all([
-        this.prisma.company.count({ where: MAIN_COMPANY }),
-        this.prisma.company.count({ where: { deleted: false, multicompte: { gt: 0 } } }),
-        this.prisma.texte.count({ where: { deleted: false } }),
-        this.prisma.texte.count({ where: { deleted: false, createdAt: { gte: since } } }),
-        this.prisma.texteSociete.count({ where: TS_ACTIVE }),
-        this.prisma.texteSociete.groupBy({
-          by: ['applicabiliteId', 'gestionetatId'],
-          where: TS_ACTIVE,
-          _count: { _all: true },
-        }),
-        this.prisma.company.findMany({
-          where: MAIN_COMPANY,
-          orderBy: { createdAt: 'desc' },
-          take: 6,
-          select: { id: true, nom: true, raisonsociale: true, email: true, createdAt: true, activated: true },
-        }),
-        this.prisma.texte.findMany({
-          where: { deleted: false },
-          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-          take: 6,
-          include: { type: true, secteur: true },
-        }),
-      ]);
+    const [
+      companies,
+      subAccounts,
+      texts,
+      textsLast30,
+      assignments,
+      grouped,
+      recentCompanies,
+      recentTexts,
+    ] = await Promise.all([
+      this.prisma.company.count({ where: MAIN_COMPANY }),
+      this.prisma.company.count({
+        where: { deleted: false, multicompte: { gt: 0 } },
+      }),
+      this.prisma.texte.count({ where: { deleted: false } }),
+      this.prisma.texte.count({
+        where: { deleted: false, createdAt: { gte: since } },
+      }),
+      this.prisma.texteSociete.count({ where: TS_ACTIVE }),
+      this.prisma.texteSociete.groupBy({
+        by: ['applicabiliteId', 'gestionetatId'],
+        where: TS_ACTIVE,
+        _count: { _all: true },
+      }),
+      this.prisma.company.findMany({
+        where: MAIN_COMPANY,
+        orderBy: { createdAt: 'desc' },
+        take: 6,
+        select: {
+          id: true,
+          nom: true,
+          raisonsociale: true,
+          email: true,
+          createdAt: true,
+          activated: true,
+        },
+      }),
+      this.prisma.texte.findMany({
+        where: { deleted: false },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 6,
+        include: { type: true, secteur: true },
+      }),
+    ]);
 
     const stats = await this.statsByCompany(recentCompanies.map((c) => c.id));
     const assignCounts = await this.prisma.texteSociete.groupBy({
@@ -102,9 +155,14 @@ export class AdminService {
       where: { ...TS_ACTIVE, texteId: { in: recentTexts.map((t) => t.id) } },
       _count: { _all: true },
     });
-    const assignBy = new Map(assignCounts.map((a) => [a.texteId, a._count._all]));
+    const assignBy = new Map(
+      assignCounts.map((a) => [a.texteId, a._count._all]),
+    );
 
-    const [followUp, todo] = await Promise.all([this.companiesToFollow(), this.igtsTodo()]);
+    const [followUp, todo] = await Promise.all([
+      this.companiesToFollow(),
+      this.igtsTodo(),
+    ]);
 
     return {
       stats: {
@@ -113,11 +171,16 @@ export class AdminService {
         texts,
         textsLast30,
         assignments,
-        compliance: computeStats(grouped.map((g) => ({ ...g, count: g._count._all }))),
+        compliance: computeStats(
+          grouped.map((g) => ({ ...g, count: g._count._all })),
+        ),
       },
       followUp,
       todo,
-      recentCompanies: recentCompanies.map((c) => ({ ...c, stats: stats.get(c.id) })),
+      recentCompanies: recentCompanies.map((c) => ({
+        ...c,
+        stats: stats.get(c.id),
+      })),
       recentTexts: recentTexts.map((t) => ({
         id: t.id,
         titre: t.titre,
@@ -154,7 +217,11 @@ export class AdminService {
           where: {
             ...TS_ACTIVE,
             ...LIVE_ACTIONS_TEXT,
-            id: { in: openActions.map((a) => a.texteSocieteId).filter((id): id is number => id !== null) },
+            id: {
+              in: openActions
+                .map((a) => a.texteSocieteId)
+                .filter((id): id is number => id !== null),
+            },
           },
           select: { id: true },
         })
@@ -162,11 +229,17 @@ export class AdminService {
     );
     const overdue = new Map<number, number>();
     for (const a of openActions) {
-      if (!a.companyId || !a.texteSocieteId || !live.has(a.texteSocieteId)) continue;
+      if (!a.companyId || !a.texteSocieteId || !live.has(a.texteSocieteId))
+        continue;
       const d = daysUntil(a.cloture);
-      if (d !== null && d < 0) overdue.set(a.companyId, (overdue.get(a.companyId) ?? 0) + 1);
+      if (d !== null && d < 0)
+        overdue.set(a.companyId, (overdue.get(a.companyId) ?? 0) + 1);
     }
-    const pendingBy = new Map(pending.filter((p) => p.companyId).map((p) => [p.companyId!, p._count._all]));
+    const pendingBy = new Map(
+      pending
+        .filter((p) => p.companyId)
+        .map((p) => [p.companyId!, p._count._all]),
+    );
     const ids = [...new Set([...pendingBy.keys(), ...overdue.keys()])];
     const companies = await this.prisma.company.findMany({
       where: { ...MAIN_COMPANY, id: { in: ids } },
@@ -180,7 +253,12 @@ export class AdminService {
         toEvaluate: pendingBy.get(c.id) ?? 0,
         overdueActions: overdue.get(c.id) ?? 0,
       }))
-      .sort((a, b) => b.overdueActions * 5 + b.toEvaluate - (a.overdueActions * 5 + a.toEvaluate))
+      .sort(
+        (a, b) =>
+          b.overdueActions * 5 +
+          b.toEvaluate -
+          (a.overdueActions * 5 + a.toEvaluate),
+      )
       .slice(0, 5);
   }
 
@@ -188,19 +266,25 @@ export class AdminService {
   private async unassignedTextIds(): Promise<number[]> {
     const [assigned, texts] = await Promise.all([
       this.prisma.texteSociete.groupBy({ by: ['texteId'], where: TS_ACTIVE }),
-      this.prisma.texte.findMany({ where: { deleted: false }, select: { id: true } }),
+      this.prisma.texte.findMany({
+        where: { deleted: false },
+        select: { id: true },
+      }),
     ]);
     const withCompany = new Set(assigned.map((a) => a.texteId));
     return texts.filter((t) => !withCompany.has(t.id)).map((t) => t.id);
   }
 
-  /** Work waiting on IGTS itself: texts nobody receives yet, drafts to validate. */
+  /**
+   * Work waiting on IGTS itself: texts of the Official Journal prepared by the
+   * daily collection, and texts nobody receives yet.
+   */
   private async igtsTodo() {
-    const [unassigned, drafts] = await Promise.all([
-      this.unassignedTextIds(),
-      this.prisma.texte.count({ where: { deleted: false, enabled: false } }),
-    ]);
-    return { unassignedTexts: unassigned.length, drafts };
+    const unassigned = await this.unassignedTextIds();
+    return {
+      unassignedTexts: unassigned.length,
+      drafts: this.drafts.pendingCount(),
+    };
   }
 
   async companies(q: AdminListQuery) {
@@ -228,8 +312,16 @@ export class AdminService {
         skip,
         take: pageSize,
         select: {
-          id: true, nom: true, raisonsociale: true, email: true, ville: true, tel: true,
-          fonction: true, createdAt: true, updatedAt: true, activated: true,
+          id: true,
+          nom: true,
+          raisonsociale: true,
+          email: true,
+          ville: true,
+          tel: true,
+          fonction: true,
+          createdAt: true,
+          updatedAt: true,
+          activated: true,
         },
       }),
     ]);
@@ -245,7 +337,11 @@ export class AdminService {
     const subsBy = new Map(subs.map((s) => [s.multicompte, s._count._all]));
 
     return {
-      items: rows.map((c) => ({ ...c, subAccounts: subsBy.get(c.id) ?? 0, stats: stats.get(c.id) })),
+      items: rows.map((c) => ({
+        ...c,
+        subAccounts: subsBy.get(c.id) ?? 0,
+        stats: stats.get(c.id),
+      })),
       total,
       page,
       pageSize,
@@ -289,7 +385,9 @@ export class AdminService {
       where: { ...TS_ACTIVE, texteId: { in: rows.map((r) => r.id) } },
       _count: { _all: true },
     });
-    const assignBy = new Map(assignCounts.map((a) => [a.texteId, a._count._all]));
+    const assignBy = new Map(
+      assignCounts.map((a) => [a.texteId, a._count._all]),
+    );
 
     return {
       items: rows.map((t) => ({

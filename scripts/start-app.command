@@ -24,6 +24,12 @@ else
   echo "Docker est introuvable : la base MySQL doit déjà tourner sur le port 3306."
 fi
 
+# Libraries added since the last install (e.g. pdf-lib for the JORT collection)
+if ! (cd "$REPO/backend" && node -e "require.resolve('pdf-lib')" >/dev/null 2>&1); then
+  echo "Installation des nouvelles dépendances de l'API…"
+  (cd "$REPO/backend" && npm install --no-audit --no-fund) || echo "Avertissement : npm install a échoué dans backend/."
+fi
+
 # 2. API (NestJS) in the background, logs in .tunnel/backend.log
 if curl -s -o /dev/null http://localhost:3001; then
   echo "L'API tourne déjà."
