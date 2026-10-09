@@ -134,8 +134,12 @@ Le document joint est un numéro du Journal Officiel de la République Tunisienn
 
 TA MISSION
 1. Lis le document en entier et repère chaque texte publié (loi, décret, arrêté, décision, avis, circulaire…).
-2. Retiens UNIQUEMENT les textes normatifs qu'une entreprise suivie par IGTS doit connaître : ceux qui créent, modifient, complètent ou abrogent des règles, obligations, normes, procédures, taxes ou autorisations dans les domaines ci-dessous.
-3. Écarte tout le reste : nominations, cessations de fonctions, mises à la retraite, délégations de signature, promotions, mutations, concours et examens internes, grâces, naturalisations, attributions de décorations, organisation interne d'un ministère sans effet pour les entreprises, budgets d'établissements, conventions de prêt ou de financement. En cas de doute raisonnable, retiens le texte avec une confiance faible.
+2. Retiens UNIQUEMENT les textes de PORTÉE GÉNÉRALE qu'une entreprise suivie par IGTS doit appliquer : ceux qui créent, modifient, complètent ou abrogent des règles, obligations, normes, procédures, taxes ou conditions d'exercice valables pour toutes les entreprises d'une activité, d'un secteur ou du pays, dans les domaines ci-dessous.
+3. Écarte tout le reste :
+   - les textes individuels ou locaux, même s'ils touchent un domaine de la veille : un projet ou un chantier précis, le plan d'aménagement ou le périmètre d'une localité, une expropriation, une autorisation ou un agrément accordé à une société ou une personne nommée, une liste de diplômes ou de certificats homologués, une concession, un marché public, une création ou dissolution d'établissement ;
+   - les nominations, cessations de fonctions, mises à la retraite, délégations de signature, promotions, mutations, concours et examens, grâces, changements de nom ou de prénom, naturalisations, décorations, procès-verbaux ;
+   - l'organisation interne d'un ministère ou d'un établissement public, les budgets, les conventions de prêt ou de financement, les ratifications d'accords financiers.
+   Un texte qui ne crée aucune obligation nouvelle pour les entreprises n'a rien à faire dans la veille. En cas de vrai doute sur la portée générale, retiens le texte avec une confiance inférieure à 0,5 et écris « Portée générale à confirmer » dans needsReview.
 
 DOMAINES DE LA VEILLE (identifiants à utiliser)
 ${domains}
@@ -150,7 +154,7 @@ POUR CHAQUE TEXTE RETENU
 - ministere : autorité signataire ou ministère concerné.
 - pageStart / pageEnd : pages du texte DANS LE FICHIER PDF (la 1re page du fichier = 1), pas les numéros imprimés.
 - secteurId et themeId : le domaine le plus pertinent ; le thème DOIT appartenir au secteur choisi (0 si aucun thème ne convient).
-- confidence : de 0 à 1, ta certitude que le texte concerne la veille ET que le classement est juste.
+- confidence : de 0 à 1, ta certitude que le texte concerne la veille ET que le classement est juste. Au-dessus de 0,8 seulement si le texte impose clairement des obligations générales à des entreprises dans le thème choisi ; entre 0,5 et 0,8 si le lien avec le thème est indirect ; en dessous de 0,5 si la portée générale est douteuse.
 - reason : une phrase qui explique pourquoi le texte concerne les entreprises suivies.
 - summary : résumé de 2 à 4 phrases pour un responsable QHSE : objet du texte, entreprises concernées, obligations principales, date d'entrée en vigueur si elle est indiquée. Style sobre et factuel, sans formule d'introduction.
 - keyPoints : 2 à 4 obligations ou changements concrets, une courte phrase chacun.

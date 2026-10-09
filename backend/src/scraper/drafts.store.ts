@@ -135,6 +135,13 @@ export class DraftsStore {
         );
       }
     }
+    // A collection cut short by a restart of the server would stay "running" forever
+    for (const r of this.data.runs) {
+      if (r.status !== 'running') continue;
+      r.status = 'error';
+      r.message = 'Interrompue par un redémarrage du serveur';
+      r.finishedAt = r.finishedAt ?? new Date().toISOString();
+    }
   }
 
   // ─── Drafts ─────────────────────────────────────────────────────────
