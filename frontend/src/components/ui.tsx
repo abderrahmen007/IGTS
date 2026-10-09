@@ -11,10 +11,10 @@ import type {
 import { Icon, type IconName } from "./icons";
 import type { Tone } from "@/lib/status";
 import { formatNumber } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
-export function cn(...parts: (string | false | null | undefined)[]) {
-  return parts.filter(Boolean).join(" ");
-}
+// shadcn/ui helper (clsx + tailwind-merge), re-exported for the existing components
+export { cn };
 
 // ─── Buttons ─────────────────────────────────────────────────────────
 

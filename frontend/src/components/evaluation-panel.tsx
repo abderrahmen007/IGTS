@@ -5,6 +5,7 @@ import { APPLICABILITY_CHOICES, BigChoice, COMPLIANCE_CHOICES } from "./big-choi
 import { Icon } from "./icons";
 import { Badge, Button, Input, LockedNote, Textarea, cn, toneBadge } from "./ui";
 import { useConfirm, useToast } from "./overlay";
+import { ClickSpark } from "./reactbits/click-spark";
 import { api, ApiError } from "@/lib/api";
 import { formatDate, plural } from "@/lib/format";
 import {
@@ -390,9 +391,12 @@ export function EvaluationPanel({
       )}
 
       <div className="flex flex-col gap-2.5 border-t border-ink-100 pt-4">
-        <Button size="lg" onClick={submit} loading={saving} disabled={disabled} iconRight={mode === "queue" ? "arrowRight" : undefined}>
-          {submitLabel}
-        </Button>
+        {/* React Bits — Click Spark: a small burst when the evaluation is validated */}
+        <ClickSpark color="#e3a33b" className="flex flex-col">
+          <Button size="lg" onClick={submit} loading={saving} disabled={disabled} iconRight={mode === "queue" ? "arrowRight" : undefined}>
+            {submitLabel}
+          </Button>
+        </ClickSpark>
         <p className="text-center text-[12.5px] leading-snug text-ink-500">{hint}</p>
         {mode === "detail" && detail.evaluatedAt && (
           <p className="text-center text-xs text-ink-400">

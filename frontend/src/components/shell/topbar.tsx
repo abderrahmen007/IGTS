@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { Icon } from "../icons";
 import { cn } from "../ui";
 import { Popover } from "./popover";
@@ -10,6 +10,7 @@ import { clearSession, type SessionUser } from "@/lib/session";
 import { initials, relativeTime } from "@/lib/format";
 import { useLive } from "../live-context";
 import { useTour } from "../tour";
+import { CommandPalette } from "../command-palette";
 
 const CHIP =
   "inline-flex h-11 items-center justify-center rounded-xl border border-ink-200/80 bg-white/70 text-ink-700 transition-colors hover:bg-white";
@@ -142,43 +143,43 @@ function UserMenu({ user }: { user: SessionUser }) {
   );
 }
 
-function Search() {
-  const router = useRouter();
-  const [q, setQ] = useState("");
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    const s = q.trim();
-    router.push(s ? `/dashboard/my-texts?search=${encodeURIComponent(s)}` : "/dashboard/my-texts");
-  };
+/** Opens the Ctrl/⌘ K palette: pages and texts in one search. */
+function SearchButton({ onOpen }: { onOpen: () => void }) {
+  // The dashboard renders in the browser only, so the platform is known up front
+  const [mac] = useState(() => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent));
   return (
-    <form onSubmit={submit} role="search" className="hidden min-w-0 flex-1 md:block md:max-w-[440px]">
-      <label className="flex h-[42px] items-center gap-2.5 rounded-xl border border-ink-200/80 bg-white/70 px-3.5 text-ink-500 focus-within:border-brand-600 focus-within:bg-white focus-within:ring-4 focus-within:ring-brand-100">
-        <Icon name="search" size={17} />
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Rechercher un texte, un numéro, un mot-clé…"
-          aria-label="Rechercher un texte"
-          className="min-w-0 flex-1 bg-transparent text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none"
-        />
-      </label>
-    </form>
+    <>
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-keyshortcuts={mac ? "Meta+K" : "Control+K"}
+        className="hidden h-[42px] min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-ink-200/80 bg-white/70 px-3.5 text-left text-sm text-ink-400 transition-colors hover:border-ink-300 hover:bg-white md:flex md:max-w-[440px]"
+      >
+        <Icon name="search" size={17} className="text-ink-500" />
+        <span className="min-w-0 flex-1 truncate">Rechercher un texte, un numéro, une page…</span>
+        <kbd className="rounded-md border border-ink-200 bg-white px-1.5 py-0.5 font-sans text-[11px] font-medium text-ink-500">
+          {mac ? "⌘ K" : "Ctrl K"}
+        </kbd>
+      </button>
+      <button type="button" onClick={onOpen} className={cn(CHIP, "w-11 md:hidden")} aria-label="Rechercher">
+        <Icon name="search" size={19} />
+      </button>
+    </>
   );
 }
 
 export function Topbar({ user, onMenu }: { user: SessionUser; onMenu: () => void }) {
   const tour = useTour();
+  const [palette, setPalette] = useState(false);
   return (
     <header className="glass sticky top-3 z-30 mx-3 mt-3 flex h-16 shrink-0 items-center gap-2 rounded-[18px] px-3 sm:mx-4 lg:ml-5 lg:mr-4">
       <button onClick={onMenu} className={cn(CHIP, "w-11 lg:hidden")} aria-label="Ouvrir le menu">
         <Icon name="menu" size={20} />
       </button>
-      {user.type === "company" ? (
-        <Search />
-      ) : (
-        <p className="truncate pl-2 text-sm font-semibold text-ink-900">Espace administrateur</p>
+      {user.type === "admin" && (
+        <p className="hidden truncate pl-2 pr-2 text-sm font-semibold text-ink-900 xl:block">Espace administrateur</p>
       )}
+      <SearchButton onOpen={() => setPalette(true)} />
       <div className="flex-1" />
       {user.type === "company" ? (
         <div data-tour="help" className="flex items-center gap-2">
@@ -192,6 +193,7 @@ export function Topbar({ user, onMenu }: { user: SessionUser; onMenu: () => void
       ) : (
         <UserMenu user={user} />
       )}
+      <CommandPalette user={user} open={palette} onOpenChange={setPalette} />
     </header>
   );
 }

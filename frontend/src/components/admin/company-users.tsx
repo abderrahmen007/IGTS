@@ -262,7 +262,7 @@ export function CompanyUsers({ detail, onChange }: { detail: CompanyDetail; onCh
                 <td className={td}>
                   <span className="flex flex-wrap gap-1.5">
                     <Badge tone={u.active ? "ok" : "neutral"}>{u.active ? "Actif" : "Désactivé"}</Badge>
-                    <Badge tone={u.canEdit ? "brand" : "neutral"}>{u.canEdit ? "Éditeur" : "Lecture seule"}</Badge>
+                    <Badge tone={u.canEdit ? "brand" : "neutral"}>{u.canEdit ? "Lecture et modification" : "Lecture seule"}</Badge>
                   </span>
                 </td>
                 <td className={cn(td, "whitespace-nowrap text-right")}>

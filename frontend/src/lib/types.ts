@@ -185,6 +185,9 @@ export interface Profile {
   company: string;
   isSubAccount: boolean;
   canEdit: boolean;
+  /** Only the company's main account changes its own password and manages the team */
+  canChangePassword?: boolean;
+  canManageTeam?: boolean;
   memberSince: string | null;
   stats: { evaluatedThisMonth: number; openActionsCreated: number };
   secteurs: Ref[];
@@ -196,6 +199,7 @@ export interface TeamMember {
   nom: string;
   email: string;
   fonction: string | null;
+  tel?: string | null;
   isMain: boolean;
   canEdit: boolean;
   active: boolean;
@@ -282,4 +286,37 @@ export interface AdminText {
   createdAt: string | null;
   hasPdf: boolean;
   assignments: number;
+}
+
+export interface TeamResponse {
+  /** True for the company's main account: it creates accounts and sets their rights */
+  canManage?: boolean;
+  members: TeamMember[];
+}
+
+interface StatsGroup {
+  name: string;
+  open: number;
+  overdue: number;
+  done: number;
+}
+
+export interface ActionStats {
+  totals: {
+    total: number;
+    open: number;
+    done: number;
+    overdue: number;
+    dueSoon: number;
+    noDeadline: number;
+    averageProgress: number | null;
+    completionRate: number | null;
+    onTimeRate: number | null;
+  };
+  byStatus: { id: number; name: string; count: number }[];
+  progress: { label: string; count: number }[];
+  bySecteur: StatsGroup[];
+  byResponsable: StatsGroup[];
+  activity: { month: string; label: string; opened: number; done: number }[];
+  deadlines: { month: string; label: string; count: number }[];
 }

@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { ActionCard, ActionEditor } from "@/components/actions";
+import { ActionStatsView } from "@/components/action-stats";
+import { AnimatedTabsList } from "@/components/aceternity/animated-tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Icon } from "@/components/icons";
 import { useToast } from "@/components/overlay";
 import { useLive } from "@/components/live-context";
@@ -25,7 +28,8 @@ import { ACTION_COLUMNS, ACTION_EFFICACE, APPLICABLE, CONFORME, dueChip } from "
 import type { ActionPlan, ActionsResponse, TextDetail } from "@/lib/types";
 
 type Filter = "all" | "late" | "week";
-type View = "board" | "list";
+type View = "board" | "list" | "stats";
+const VIEWS: View[] = ["board", "list", "stats"];
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: "all", label: "Toutes" },
@@ -58,12 +62,18 @@ export default function ActionsPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [domain, setDomain] = useState("");
   const [search, setSearch] = useState("");
+  // ?vue=stats|liste|tableau (links from the palette), else the last view used
   const [view, setView] = useState<View>(() => {
+    if (typeof window === "undefined") return "board";
+    const fromUrl = new URLSearchParams(window.location.search).get("vue");
+    const map: Record<string, View> = { stats: "stats", statistiques: "stats", liste: "list", tableau: "board" };
+    let saved: string | null = null;
     try {
-      return typeof window !== "undefined" && window.localStorage.getItem(VIEW_KEY) === "list" ? "list" : "board";
+      saved = window.localStorage.getItem(VIEW_KEY);
     } catch {
-      return "board";
+      /* ignore */
     }
+    return (fromUrl && map[fromUrl]) || (VIEWS.includes(saved as View) ? (saved as View) : "board");
   });
   const [editing, setEditing] = useState<ActionPlan | null>(null);
   const [dragId, setDragId] = useState<number | null>(null);
@@ -169,7 +179,7 @@ export default function ActionsPage() {
 
       {error && <ErrorState message={error} onRetry={reload} />}
 
-      {c && (
+      {c && view !== "stats" && (
         <div className="mb-5 flex flex-wrap gap-3">
           <Stat value={formatNumber(c.open)} label="en cours" />
           {c.overdue > 0 && <Stat value={formatNumber(c.overdue)} label="en retard" tone="coral" />}
@@ -199,24 +209,20 @@ export default function ActionsPage() {
         </div>
       )}
 
+      <Tabs value={view} onValueChange={(v) => chooseView(v as View)} className="gap-0">
       <div className="mb-5 flex flex-wrap items-center gap-3">
-        <div role="group" aria-label="Affichage" className="glass flex rounded-xl p-1">
-          {(["board", "list"] as View[]).map((v) => (
-            <button
-              key={v}
-              type="button"
-              aria-pressed={view === v}
-              onClick={() => chooseView(v)}
-              className={cn(
-                "flex h-9 items-center gap-2 rounded-[9px] px-3.5 text-[13.5px] transition-colors",
-                view === v ? "bg-white font-semibold text-ink-900 shadow-[0_1px_2px_rgb(22_20_43/0.12)]" : "font-medium text-ink-600",
-              )}
-            >
-              <Icon name={v === "board" ? "columns" : "list"} size={16} />
-              {v === "board" ? "Tableau" : "Liste"}
-            </button>
-          ))}
-        </div>
+        <AnimatedTabsList
+          label="Affichage du plan d’action"
+          layoutId="actions-view"
+          value={view}
+          tabs={[
+            { value: "board", label: "Tableau", icon: "columns" },
+            { value: "list", label: "Liste", icon: "list" },
+            { value: "stats", label: "Statistiques", icon: "chart" },
+          ]}
+        />
+        {view !== "stats" && (
+        <>
         <div className="flex flex-wrap gap-2">
           {FILTERS.map((f) => (
             <button
@@ -245,9 +251,15 @@ export default function ActionsPage() {
             ))}
           </Select>
         )}
+        </>
+        )}
       </div>
 
-      {loading && !data && (
+      <TabsContent value="stats">
+        <ActionStatsView version={live?.version ?? 0} />
+      </TabsContent>
+
+      {loading && !data && view !== "stats" && (
         <div className="grid auto-cols-[minmax(290px,1fr)] grid-flow-col gap-5 overflow-x-auto">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-[420px] rounded-[20px]" />
@@ -255,7 +267,7 @@ export default function ActionsPage() {
         </div>
       )}
 
-      {data && data.items.length === 0 && (
+      {data && data.items.length === 0 && view !== "stats" && (
         <div className="glass rounded-[22px]">
           <EmptyState
             icon="listChecks"
@@ -395,7 +407,9 @@ export default function ActionsPage() {
         </div>
       )}
 
-      {c && c.onHold > 0 && (
+      </Tabs>
+
+      {c && c.onHold > 0 && view !== "stats" && (
         <p className="mt-5 flex items-center gap-2 text-[13px] text-ink-500">
           <Icon name="pause" size={16} />
           {plural(c.onHold, "action est en pause", "actions sont en pause")} : leurs textes ne demandent plus d’action.

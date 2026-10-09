@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Icon } from "./icons";
 import { cn } from "./ui";
+import { TextGenerateEffect } from "./aceternity/text-generate-effect";
 import { api, ApiError } from "@/lib/api";
 import { ASSISTANT_EVENT } from "@/lib/assistant";
 
@@ -56,6 +57,12 @@ export function AssistantWidget() {
   const [open, setOpen] = useState(false);
   const [teaser, setTeaser] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+  /** The answer that just arrived: written word by word (Aceternity Text Generate Effect), once. */
+  const [fresh, setFresh] = useState<Message | null>(null);
+  const closePanel = () => {
+    setOpen(false);
+    setFresh(null);
+  };
   const [greeted, setGreeted] = useState(true);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -84,7 +91,11 @@ export function AssistantWidget() {
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: globalThis.KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      setFresh(null);
+    };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
@@ -106,7 +117,9 @@ export function AssistantWidget() {
         method: "POST",
         body: { question: q, texteSocieteId: textId ? Number(textId) : undefined },
       });
-      setMessages((m) => [...m, { role: "assistant", text: res.answer, sources: res.sources, error: res.unavailable }]);
+      const answer: Message = { role: "assistant", text: res.answer, sources: res.sources, error: res.unavailable };
+      setFresh(answer.error ? null : answer);
+      setMessages((m) => [...m, answer]);
     } catch (e) {
       setMessages((m) => [
         ...m,
@@ -197,7 +210,7 @@ export function AssistantWidget() {
               </button>
             )}
             <button
-              onClick={() => setOpen(false)}
+              onClick={() => closePanel()}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md text-white/80 hover:bg-white/10 hover:text-white"
               aria-label="Réduire l’assistant"
             >
@@ -237,7 +250,7 @@ export function AssistantWidget() {
                   ) : (
                     <div key={i} className="max-w-[95%]">
                       <p className={cn("whitespace-pre-line text-[14.5px] leading-relaxed", m.error ? "text-warn-700" : "text-ink-900")}>
-                        {m.text}
+                        {m === fresh ? <TextGenerateEffect text={m.text} stagger={0.018} /> : m.text}
                       </p>
                       {m.sources && m.sources.length > 0 && (
                         <ol className="mt-2 space-y-1 border-l-2 border-ink-200 pl-3">

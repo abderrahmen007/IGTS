@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Icon, type IconName } from "@/components/icons";
@@ -195,8 +196,8 @@ export default function ProfilePage() {
             <h1 className="truncate font-serif text-[30px] font-semibold leading-tight text-ink-900">{p.nom}</h1>
             <span className="text-[15px] text-ink-700">{[p.fonction, p.company].filter(Boolean).join(" · ")}</span>
             <span className="flex flex-wrap gap-2">
-              <Badge tone={p.canEdit ? "brand" : "neutral"}>{p.canEdit ? "Éditeur" : "Lecture seule"}</Badge>
-              {p.isSubAccount ? <Badge>Compte utilisateur</Badge> : <Badge>Compte principal</Badge>}
+              <Badge tone={p.canEdit ? "brand" : "neutral"}>{p.canEdit ? "Lecture et modification" : "Lecture seule"}</Badge>
+              {p.isSubAccount ? <Badge>Compte secondaire</Badge> : <Badge>Compte principal</Badge>}
             </span>
           </div>
           <div className="flex gap-3">
@@ -232,7 +233,14 @@ export default function ProfilePage() {
                   placeholder="Ex. : Responsable QHSE"
                 />
               </Field>
-              <Field label="E-mail de connexion" hint="Seul IGTS peut changer l’identifiant de connexion.">
+              <Field
+                label="E-mail de connexion"
+                hint={
+                  p.isSubAccount
+                    ? "Le compte principal de votre entreprise peut changer votre identifiant."
+                    : "Seul IGTS peut changer l’identifiant de connexion."
+                }
+              >
                 <span className="flex h-10 items-center gap-2 rounded-xl border border-ink-100 bg-paper px-3.5 text-sm text-ink-600">
                   <Icon name="lock" size={15} />
                   <span className="truncate">{p.email}</span>
@@ -257,16 +265,26 @@ export default function ProfilePage() {
           </form>
 
           <section className="flex flex-col divide-y divide-ink-100 rounded-[22px] border border-ink-200/80 bg-white px-6 py-2">
-            <Row
-              icon="key"
-              title="Mot de passe"
-              sub="Utilisé ici et sur l’ancienne plateforme"
-              action={
-                <Button variant="secondary" size="sm" onClick={() => setPwd(true)}>
-                  Changer
-                </Button>
-              }
-            />
+            {p.canChangePassword !== false ? (
+              <Row
+                icon="key"
+                title="Mot de passe"
+                sub="Utilisé ici et sur l’ancienne plateforme"
+                action={
+                  <Button variant="secondary" size="sm" onClick={() => setPwd(true)}>
+                    Changer
+                  </Button>
+                }
+              />
+            ) : (
+              /* Secondary accounts: the main account manages their password (supervisor, 09/10) */
+              <Row
+                icon="key"
+                title="Mot de passe"
+                sub="Géré par le compte principal de votre entreprise. Adressez-vous à lui en cas d’oubli."
+                action={<Icon name="lock" size={17} className="text-ink-400" />}
+              />
+            )}
             <Row
               icon="monitor"
               title="Session ouverte"
@@ -313,13 +331,16 @@ export default function ProfilePage() {
           <section className="flex flex-col gap-3 rounded-[22px] border border-ink-200/80 bg-white p-6">
             <div className="flex items-center justify-between">
               <h2 className="text-[17px] font-semibold text-ink-900">Mon accès</h2>
-              <Badge tone={p.canEdit ? "brand" : "neutral"}>{p.canEdit ? "Éditeur" : "Lecture seule"}</Badge>
+              <Badge tone={p.canEdit ? "brand" : "neutral"}>{p.canEdit ? "Lecture et modification" : "Lecture seule"}</Badge>
             </div>
             {[
               { ok: true, label: "Consulter tous les textes et le plan d’action" },
               { ok: p.canEdit, label: "Évaluer les textes" },
               { ok: p.canEdit, label: "Créer et suivre des actions" },
-              { ok: false, label: "Gérer les comptes (réservé à IGTS)" },
+              {
+                ok: Boolean(p.canManageTeam),
+                label: p.canManageTeam ? "Créer les comptes de l’équipe et choisir leurs droits" : "Gérer les comptes de l’équipe (compte principal)",
+              },
             ].map((r) => (
               <p key={r.label} className="flex items-center gap-2.5 text-sm text-ink-800">
                 <Icon
@@ -331,6 +352,15 @@ export default function ProfilePage() {
                 <span className={r.ok ? "" : "text-ink-500"}>{r.label}</span>
               </p>
             ))}
+            {p.canManageTeam && (
+              <Link
+                href="/dashboard/team"
+                className="inline-flex items-center gap-1.5 self-start text-[13.5px] font-semibold text-brand-700 hover:text-brand-900"
+              >
+                Gérer mon équipe
+                <Icon name="arrowRight" size={15} />
+              </Link>
+            )}
             {p.secteurs.length > 0 && (
               <div className="flex flex-wrap gap-1.5 border-t border-ink-100 pt-3">
                 {p.secteurs.map((s) => (
@@ -368,7 +398,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <PasswordModal open={pwd} onClose={() => setPwd(false)} />
+      {p.canChangePassword !== false && <PasswordModal open={pwd} onClose={() => setPwd(false)} />}
     </div>
   );
 }

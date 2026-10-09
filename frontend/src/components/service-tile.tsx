@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { Icon, type IconName } from "./icons";
+import { CountUp } from "./reactbits/count-up";
+import { spotlight } from "./reactbits/spotlight-card";
 import { cn } from "./ui";
 
 /**
  * Key service of a home page: a frosted-glass tile with a glossy "gem" icon,
  * the figure of the day and a one-line explanation. Used by the company and
- * the IGTS administration home pages.
+ * the IGTS administration home pages. Numbers count up (React Bits Count Up)
+ * and a soft light follows the pointer (React Bits Spotlight Card).
  */
 export function ServiceTile({
   href,
@@ -22,7 +25,7 @@ export function ServiceTile({
   onClick?: () => void;
   gem: string;
   icon: IconName;
-  value?: string;
+  value?: string | number | null;
   label: string;
   sub: string;
 }) {
@@ -41,7 +44,9 @@ export function ServiceTile({
       </span>
       <span className="flex min-w-0 items-baseline gap-2">
         {value !== undefined && (
-          <span className="tabular font-serif text-[26px] font-semibold leading-none text-ink-900 sm:text-[30px]">{value}</span>
+          <span className="tabular font-serif text-[26px] font-semibold leading-none text-ink-900 sm:text-[30px]">
+            {value === null ? "…" : typeof value === "number" ? <CountUp to={value} /> : value}
+          </span>
         )}
         <span className="flex min-w-0 flex-col text-left">
           <span className="text-[14.5px] font-semibold text-ink-900">{label}</span>
@@ -50,13 +55,13 @@ export function ServiceTile({
       </span>
     </>
   );
-  const cls = "glass lift group flex min-h-28 flex-col justify-between gap-3 rounded-[18px] p-3.5 text-ink-900 sm:min-h-32 sm:gap-4 sm:rounded-[20px] sm:p-[18px]";
+  const cls = "glass lift spotlight group flex min-h-28 flex-col justify-between gap-3 rounded-[18px] p-3.5 text-ink-900 sm:min-h-32 sm:gap-4 sm:rounded-[20px] sm:p-[18px]";
   return href ? (
-    <Link href={href} className={cls}>
+    <Link href={href} className={cls} {...spotlight()}>
       {inner}
     </Link>
   ) : (
-    <button type="button" onClick={onClick} className={cls}>
+    <button type="button" onClick={onClick} className={cls} {...spotlight()}>
       {inner}
     </button>
   );

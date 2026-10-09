@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { Button, Field, Input, cn } from "@/components/ui";
 import { Icon } from "@/components/icons";
+import { Spotlight } from "@/components/aceternity/spotlight";
 import { api, ApiError } from "@/lib/api";
 import { getSession, saveSession, type AccountType, type SessionUser } from "@/lib/session";
 
@@ -52,7 +53,15 @@ export default function LoginPage() {
           aria-hidden="true"
           className="absolute -bottom-32 -right-24 h-[420px] w-[420px] rounded-full border-[70px] border-saffron-500 opacity-40 blur-[40px]"
         />
-        <Image src="/brand/igts-veille-white.png" alt="IGTS Veille" width={148} height={103} loading="eager" />
+        <Spotlight className="-left-40 -top-56" />
+        <Image
+          src="/brand/igts-veille-white.png"
+          alt="IGTS Veille"
+          width={148}
+          height={103}
+          loading="eager"
+          className="relative"
+        />
 
         <div className="relative max-w-md">
           <h1 className="font-serif text-[34px] font-semibold leading-tight">

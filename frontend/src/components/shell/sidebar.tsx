@@ -9,6 +9,7 @@ import type { AccountType, SessionUser } from "@/lib/session";
 import { initials } from "@/lib/format";
 import { useLive } from "../live-context";
 import { useTour } from "../tour";
+import { ShinyText } from "../reactbits/shiny-text";
 
 type BadgeKind = "toEvaluate" | "actions";
 
@@ -132,8 +133,8 @@ export function Sidebar({
                       <span className="flex-1 truncate">{item.label}</span>
                       {item.badge && <NavBadge kind={item.badge} />}
                       {item.isNew && !active && (
-                        <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-600">
-                          Nouveau
+                        <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold">
+                          <ShinyText color="#4a3cc2">Nouveau</ShinyText>
                         </span>
                       )}
                     </Link>

@@ -20,6 +20,7 @@ import {
 } from "@/components/ui";
 import { Tabs } from "@/components/tabs";
 import { StatusBadge } from "@/components/status-badge";
+import { scrollToTop } from "@/components/smooth-scroll";
 import { useApi } from "@/lib/use-api";
 import { useDebounced, useUrlState } from "@/lib/use-url-state";
 import { formatDate, formatNumber } from "@/lib/format";
@@ -228,7 +229,7 @@ function MyTextsView() {
             pageSize={data.pageSize}
             onPage={(p) => {
               setQ({ page: p }, { resetPage: false });
-              window.scrollTo({ top: 0 });
+              scrollToTop();
             }}
           />
         )}

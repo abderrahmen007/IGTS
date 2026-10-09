@@ -9,6 +9,9 @@ import { StatusBadge } from "@/components/status-badge";
 import { useLive } from "@/components/live-context";
 import { useMe } from "@/components/me-context";
 import { useUser } from "@/components/session-context";
+import { CountUp } from "@/components/reactbits/count-up";
+import { Spotlight } from "@/components/aceternity/spotlight";
+import { AnimatedContent } from "@/components/reactbits/animated-content";
 import { useApi } from "@/lib/use-api";
 import { openAssistant } from "@/lib/assistant";
 import { formatNumber, formatPercent, plural } from "@/lib/format";
@@ -83,7 +86,8 @@ function NextStep({ data, canEdit }: { data: CompanyOverview; canEdit: boolean }
       data-tour="next-step"
       className="zellige relative flex min-h-[270px] flex-col gap-4 overflow-hidden rounded-[22px] bg-brand-800 px-7 py-6 text-white shadow-[0_24px_50px_-24px_rgb(28_7_108/0.7)]"
     >
-      <div className="flex flex-col gap-2">
+      <Spotlight className="-left-28 -top-44 lg:-left-20 lg:-top-36" />
+      <div className="relative flex flex-col gap-2">
         <p className="text-[12.5px] font-semibold uppercase tracking-[0.08em] text-saffron-300">{eyebrow}</p>
         <h2 className="font-serif text-[28px] font-semibold leading-[1.15] sm:text-[30px]">{title}</h2>
         <p className="max-w-[460px] text-[15px] leading-relaxed text-brand-100">{body}</p>
@@ -102,7 +106,7 @@ function NextStep({ data, canEdit }: { data: CompanyOverview; canEdit: boolean }
         </div>
       )}
 
-      <div className="mt-auto flex flex-wrap items-center gap-5">
+      <div className="relative mt-auto flex flex-wrap items-center gap-5">
         <Link
           href={cta.href}
           className="lift inline-flex h-12 items-center gap-2.5 rounded-xl bg-saffron-500 px-[22px] text-[15px] font-semibold text-ink-900 shadow-[inset_0_1px_0_rgb(255_255_255/0.5)]"
@@ -138,7 +142,7 @@ function Compliance({ data }: { data: CompanyOverview }) {
     >
       <Ring value={s.complianceRate} size={176}>
         <span className="tabular font-serif text-[42px] font-semibold leading-none text-ink-900">
-          {s.complianceRate === null ? "—" : formatPercent(s.complianceRate)}
+          {s.complianceRate === null ? "—" : <CountUp to={s.complianceRate} format={(n) => formatPercent(n)} />}
         </span>
         <span className="mt-1.5 text-[13px] text-ink-600">en règle</span>
       </Ring>
@@ -231,7 +235,7 @@ export function CompanyDashboard() {
           href="/dashboard/evaluations"
           gem="bg-saffron-500 text-[#3a2400]"
           icon="inbox"
-          value={s ? formatNumber(s.toAnalyse) : "…"}
+          value={s ? s.toAnalyse : null}
           label="À évaluer"
           sub={s?.toAnalyse === 1 ? "texte en attente" : "textes en attente"}
         />
@@ -239,7 +243,7 @@ export function CompanyDashboard() {
           href="/dashboard/actions"
           gem={s && s.overdueActions > 0 ? "bg-coral-600 text-white" : "bg-brand-600 text-white"}
           icon="listChecks"
-          value={s ? formatNumber(s.overdueActions > 0 ? s.overdueActions : s.openActions) : "…"}
+          value={s ? (s.overdueActions > 0 ? s.overdueActions : s.openActions) : null}
           label="Plan d’action"
           sub={s && s.overdueActions > 0 ? "actions en retard" : "actions en cours"}
         />
@@ -254,7 +258,7 @@ export function CompanyDashboard() {
           href="/dashboard/my-texts"
           gem="bg-info-600 text-white"
           icon="file"
-          value={s ? formatNumber(s.total) : "…"}
+          value={s ? s.total : null}
           label="Ma veille"
           sub="textes suivis"
         />
@@ -274,133 +278,137 @@ export function CompanyDashboard() {
         )}
       </section>
 
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,560px)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-1 rounded-[22px] border border-ink-200/80 bg-white px-3 pb-3 pt-5">
-          <div className="flex items-baseline justify-between px-3 pb-2">
-            <h2 className="text-[17px] font-semibold text-ink-900">À faire bientôt</h2>
-            <Link href="/dashboard/actions" className="text-[13.5px] font-semibold text-brand-700 hover:underline">
-              Plan d’action
-            </Link>
-          </div>
-          {!data &&
-            [0, 1, 2].map((i) => <Skeleton key={i} className="mx-3 my-2 h-12" />)}
-          {data?.upcomingActions.length === 0 && (
-            <p className="px-3 py-6 text-center text-sm text-ink-500">Aucune action en cours pour le moment.</p>
-          )}
-          {data?.upcomingActions.map((a) => {
-            const chip = dueChip(a.dueIn);
-            const late = a.dueIn !== null && a.dueIn < 0;
-            return (
-              <Link
-                key={a.id}
-                href={a.texteSocieteId ? `/dashboard/my-texts/${a.texteSocieteId}#actions` : "/dashboard/actions"}
-                className="flex items-center gap-3.5 rounded-xl p-3 transition-colors hover:bg-paper"
-              >
-                <span
-                  className={cn(
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-                    late ? "bg-coral-100 text-coral-700" : "bg-saffron-100 text-saffron-700",
-                  )}
-                >
-                  <Icon name={late ? "clock" : "calendar"} size={20} strokeWidth={1.8} />
-                </span>
-                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="truncate text-[14.5px] font-semibold text-ink-900">{a.description || "Action"}</span>
-                  <span className="truncate text-[12.5px] text-ink-500">
-                    {[a.theme, a.responsable].filter(Boolean).join(" · ") || a.texteTitre}
-                  </span>
-                </span>
-                {chip && (
-                  <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[12.5px] font-semibold", toneBadge(chip.tone))}>
-                    {chip.label}
-                  </span>
-                )}
+      <AnimatedContent>
+        <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,560px)_minmax(0,1fr)]">
+          <div className="flex flex-col gap-1 rounded-[22px] border border-ink-200/80 bg-white px-3 pb-3 pt-5">
+            <div className="flex items-baseline justify-between px-3 pb-2">
+              <h2 className="text-[17px] font-semibold text-ink-900">À faire bientôt</h2>
+              <Link href="/dashboard/actions" className="text-[13.5px] font-semibold text-brand-700 hover:underline">
+                Plan d’action
               </Link>
-            );
-          })}
-          <p className="mx-3 mt-1 flex items-center gap-2.5 rounded-xl bg-paper px-3.5 py-3 text-[13px] text-ink-600">
-            <Icon name="check" size={18} strokeWidth={2} className="text-ok-600" />
-            Rappel par e-mail 7 jours et 1 jour avant chaque échéance.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-1 rounded-[22px] border border-ink-200/80 bg-white px-3 pb-3 pt-5">
-          <div className="flex items-baseline justify-between px-3 pb-2">
-            <h2 className="text-[17px] font-semibold text-ink-900">Nouveautés de votre veille</h2>
-            <Link href="/dashboard/my-texts" className="text-[13.5px] font-semibold text-brand-700 hover:underline">
-              Tous les textes
-            </Link>
-          </div>
-          {!data && [0, 1, 2].map((i) => <Skeleton key={i} className="mx-3 my-2 h-14" />)}
-          {data?.recentTexts.slice(0, 4).map((t) => (
-            <Link
-              key={t.id}
-              href={`/dashboard/my-texts/${t.id}`}
-              className="flex flex-col gap-1.5 rounded-xl p-3 transition-colors hover:bg-paper"
-            >
-              <span className="flex flex-wrap items-center gap-2 text-xs text-ink-500">
-                {t.type?.name && (
-                  <span className="rounded-md bg-brand-50 px-2 py-0.5 font-semibold text-brand-800">{t.type.name}</span>
-                )}
-                {[t.date, t.secteur?.name].filter(Boolean).join(" · ")}
-                <span className="ml-auto flex gap-1.5">
-                  {t.updatedSinceEvaluation && <Badge tone="info">Mis à jour</Badge>}
-                  <StatusBadge applicabilite={t.applicabilite} etat={t.etat} />
-                </span>
-              </span>
-              <span className="line-clamp-2 text-[14.5px] font-semibold leading-snug text-ink-900">{t.titre}</span>
-            </Link>
-          ))}
-          {data?.recentTexts.length === 0 && (
-            <p className="px-3 py-6 text-center text-sm text-ink-500">Aucun texte dans votre veille pour le moment.</p>
-          )}
-        </div>
-      </section>
-
-      {data && data.bySecteur.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-[17px] font-semibold text-ink-900">Vos domaines</h2>
-            <span className="text-[13px] text-ink-500">{plural(data.bySecteur.length, "domaine suivi", "domaines suivis")}</span>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-            {data.bySecteur.map((d) => {
-              const color = domainColor(d.name);
+            </div>
+            {!data &&
+              [0, 1, 2].map((i) => <Skeleton key={i} className="mx-3 my-2 h-12" />)}
+            {data?.upcomingActions.length === 0 && (
+              <p className="px-3 py-6 text-center text-sm text-ink-500">Aucune action en cours pour le moment.</p>
+            )}
+            {data?.upcomingActions.map((a) => {
+              const chip = dueChip(a.dueIn);
+              const late = a.dueIn !== null && a.dueIn < 0;
               return (
-              <Link
-                key={d.id}
-                href={`/dashboard/my-texts?secteurId=${d.id}`}
-                className="lift flex flex-col gap-3 rounded-[18px] border border-ink-200/80 bg-white px-5 py-[18px]"
-              >
-                <span className="flex items-center gap-3">
-                  <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px]", color.bg, color.text)}>
-                    <Icon name={domainIcon(d.name)} size={18} strokeWidth={1.8} />
+                <Link
+                  key={a.id}
+                  href={a.texteSocieteId ? `/dashboard/my-texts/${a.texteSocieteId}#actions` : "/dashboard/actions"}
+                  className="flex items-center gap-3.5 rounded-xl p-3 transition-colors hover:bg-paper"
+                >
+                  <span
+                    className={cn(
+                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                      late ? "bg-coral-100 text-coral-700" : "bg-saffron-100 text-saffron-700",
+                    )}
+                  >
+                    <Icon name={late ? "clock" : "calendar"} size={20} strokeWidth={1.8} />
                   </span>
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate text-[14.5px] font-semibold text-ink-900">{d.name}</span>
-                    <span className="text-[12.5px] text-ink-500">{plural(d.total, "texte", "textes")}</span>
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="truncate text-[14.5px] font-semibold text-ink-900">{a.description || "Action"}</span>
+                    <span className="truncate text-[12.5px] text-ink-500">
+                      {[a.theme, a.responsable].filter(Boolean).join(" · ") || a.texteTitre}
+                    </span>
                   </span>
-                  {d.toAnalyse > 0 && (
-                    <span className="ml-auto shrink-0">
-                      <Badge tone="warn">{d.toAnalyse} à évaluer</Badge>
+                  {chip && (
+                    <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[12.5px] font-semibold", toneBadge(chip.tone))}>
+                      {chip.label}
                     </span>
                   )}
-                </span>
-                <StackedBar
-                  segments={[
-                    { value: d.conforme, tone: "ok", label: "En règle" },
-                    { value: d.nonConforme, tone: "coral", label: "À mettre en règle" },
-                    { value: d.indicatif, tone: "info", label: "Pour information" },
-                  ]}
-                />
-                <span className="text-[12.5px] text-ink-600">
-                  <b className="font-semibold text-ink-900">{formatPercent(d.complianceRate)}</b> en règle
-                </span>
-              </Link>
-            );
+                </Link>
+              );
             })}
+            <p className="mx-3 mt-1 flex items-center gap-2.5 rounded-xl bg-paper px-3.5 py-3 text-[13px] text-ink-600">
+              <Icon name="check" size={18} strokeWidth={2} className="text-ok-600" />
+              Rappel par e-mail 7 jours et 1 jour avant chaque échéance.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1 rounded-[22px] border border-ink-200/80 bg-white px-3 pb-3 pt-5">
+            <div className="flex items-baseline justify-between px-3 pb-2">
+              <h2 className="text-[17px] font-semibold text-ink-900">Nouveautés de votre veille</h2>
+              <Link href="/dashboard/my-texts" className="text-[13.5px] font-semibold text-brand-700 hover:underline">
+                Tous les textes
+              </Link>
+            </div>
+            {!data && [0, 1, 2].map((i) => <Skeleton key={i} className="mx-3 my-2 h-14" />)}
+            {data?.recentTexts.slice(0, 4).map((t) => (
+              <Link
+                key={t.id}
+                href={`/dashboard/my-texts/${t.id}`}
+                className="flex flex-col gap-1.5 rounded-xl p-3 transition-colors hover:bg-paper"
+              >
+                <span className="flex flex-wrap items-center gap-2 text-xs text-ink-500">
+                  {t.type?.name && (
+                    <span className="rounded-md bg-brand-50 px-2 py-0.5 font-semibold text-brand-800">{t.type.name}</span>
+                  )}
+                  {[t.date, t.secteur?.name].filter(Boolean).join(" · ")}
+                  <span className="ml-auto flex gap-1.5">
+                    {t.updatedSinceEvaluation && <Badge tone="info">Mis à jour</Badge>}
+                    <StatusBadge applicabilite={t.applicabilite} etat={t.etat} />
+                  </span>
+                </span>
+                <span className="line-clamp-2 text-[14.5px] font-semibold leading-snug text-ink-900">{t.titre}</span>
+              </Link>
+            ))}
+            {data?.recentTexts.length === 0 && (
+              <p className="px-3 py-6 text-center text-sm text-ink-500">Aucun texte dans votre veille pour le moment.</p>
+            )}
           </div>
         </section>
+      </AnimatedContent>
+
+      {data && data.bySecteur.length > 0 && (
+        <AnimatedContent>
+          <section className="flex flex-col gap-3">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-[17px] font-semibold text-ink-900">Vos domaines</h2>
+              <span className="text-[13px] text-ink-500">{plural(data.bySecteur.length, "domaine suivi", "domaines suivis")}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+              {data.bySecteur.map((d) => {
+                const color = domainColor(d.name);
+                return (
+                <Link
+                  key={d.id}
+                  href={`/dashboard/my-texts?secteurId=${d.id}`}
+                  className="lift flex flex-col gap-3 rounded-[18px] border border-ink-200/80 bg-white px-5 py-[18px]"
+                >
+                  <span className="flex items-center gap-3">
+                    <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px]", color.bg, color.text)}>
+                      <Icon name={domainIcon(d.name)} size={18} strokeWidth={1.8} />
+                    </span>
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate text-[14.5px] font-semibold text-ink-900">{d.name}</span>
+                      <span className="text-[12.5px] text-ink-500">{plural(d.total, "texte", "textes")}</span>
+                    </span>
+                    {d.toAnalyse > 0 && (
+                      <span className="ml-auto shrink-0">
+                        <Badge tone="warn">{d.toAnalyse} à évaluer</Badge>
+                      </span>
+                    )}
+                  </span>
+                  <StackedBar
+                    segments={[
+                      { value: d.conforme, tone: "ok", label: "En règle" },
+                      { value: d.nonConforme, tone: "coral", label: "À mettre en règle" },
+                      { value: d.indicatif, tone: "info", label: "Pour information" },
+                    ]}
+                  />
+                  <span className="text-[12.5px] text-ink-600">
+                    <b className="font-semibold text-ink-900">{formatPercent(d.complianceRate)}</b> en règle
+                  </span>
+                </Link>
+              );
+              })}
+            </div>
+          </section>
+        </AnimatedContent>
       )}
     </div>
   );

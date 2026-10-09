@@ -7,6 +7,7 @@ import { Icon } from "@/components/icons";
 import { ServiceTile } from "@/components/service-tile";
 import { useToast } from "@/components/overlay";
 import { useUser } from "@/components/session-context";
+import { CountUp } from "@/components/reactbits/count-up";
 import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { formatDate, formatNumber, formatPercent, plural } from "@/lib/format";
@@ -33,7 +34,7 @@ function ClientsCompliance({ data }: { data: AdminOverview }) {
     <div className="flex flex-col items-center gap-6 rounded-[22px] border border-ink-200/80 bg-white p-6 sm:flex-row sm:items-center">
       <Ring value={c.complianceRate} size={176}>
         <span className="tabular font-serif text-[42px] font-semibold leading-none text-ink-900">
-          {c.complianceRate === null ? "—" : formatPercent(c.complianceRate)}
+          {c.complianceRate === null ? "—" : <CountUp to={c.complianceRate} format={(n) => formatPercent(n)} />}
         </span>
         <span className="mt-1.5 text-[13px] text-ink-600">en règle</span>
       </Ring>
@@ -196,7 +197,7 @@ export function AdminDashboard() {
           href="/dashboard/companies"
           gem="bg-brand-800 text-white"
           icon="building"
-          value={s ? formatNumber(s.companies) : "…"}
+          value={s ? s.companies : null}
           label="Entreprises"
           sub={s ? `+ ${formatNumber(s.subAccounts)} comptes utilisateurs` : "clientes"}
         />
@@ -204,7 +205,7 @@ export function AdminDashboard() {
           href="/dashboard/texts"
           gem="bg-info-600 text-white"
           icon="file"
-          value={s ? formatNumber(s.texts) : "…"}
+          value={s ? s.texts : null}
           label="Textes"
           sub={s ? `+ ${formatNumber(s.textsLast30)} ces 30 jours` : "réglementaires"}
         />

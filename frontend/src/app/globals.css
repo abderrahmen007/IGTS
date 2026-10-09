@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* shadcn/ui animations (data-[state=open]:animate-in …) and Lenis smooth scrolling */
+@import "tw-animate-css";
+@import "lenis/dist/lenis.css";
 
 /*
  * IGTS Veille — design tokens (v2)
@@ -84,7 +87,73 @@
   --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+/*
+ * shadcn/ui semantic tokens, mapped onto the IGTS palette so that components
+ * added with `npx shadcn add …` look native (bg-background, text-muted-foreground…).
+ */
+:root {
+  --radius: 0.875rem;
+  --background: #f6f4ef;
+  --foreground: #16142b;
+  --card: #ffffff;
+  --card-foreground: #16142b;
+  --popover: #ffffff;
+  --popover-foreground: #16142b;
+  --primary: #1c076c;
+  --primary-foreground: #ffffff;
+  --secondary: #eeecf9;
+  --secondary-foreground: #1c076c;
+  --muted: #efece4;
+  --muted-foreground: #66647c;
+  --accent: #f6f4ef;
+  --accent-foreground: #16142b;
+  --destructive: #b42318;
+  --border: #e1ddd2;
+  --input: #e1ddd2;
+  --ring: #3b2ba8;
+  /*
+   * Chart marks (validated: lightness band, chroma, colour-blind separation,
+   * contrast on white): indigo, green, coral, deep saffron, sky.
+   */
+  --chart-1: #5a4fd0;
+  --chart-2: #2e9a62;
+  --chart-3: #d9622b;
+  --chart-4: #c0821f;
+  --chart-5: #4c74b8;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+}
+
 @layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-border);
+  }
   html {
     -webkit-text-size-adjust: 100%;
   }
@@ -160,6 +229,29 @@
     transform: translateY(-1px);
   }
 }
+/* React Bits — Spotlight Card: a soft light follows the pointer (components/reactbits/spotlight-card.tsx) */
+@utility spotlight {
+  position: relative;
+  isolation: isolate;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: radial-gradient(
+      260px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+      var(--spot-color, rgb(90 79 208 / 0.16)),
+      transparent 70%
+    );
+    opacity: 0;
+    transition: opacity 300ms var(--ease-out-soft);
+    pointer-events: none;
+  }
+  &:hover::before {
+    opacity: 1;
+  }
+}
 /* Discreet zellige-inspired pattern (next-step card, login) */
 @utility zellige {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56'%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.09' stroke-width='1.2'%3E%3Crect x='17' y='17' width='22' height='22'/%3E%3Crect x='17' y='17' width='22' height='22' transform='rotate(45 28 28)'/%3E%3Ccircle cx='28' cy='28' r='4.5'/%3E%3Cpath d='M0 0l11 11M56 0L45 11M0 56l11-11M56 56L45 45'/%3E%3C/g%3E%3C/svg%3E");
@@ -183,6 +275,16 @@
 }
 @keyframes ringfill {
   from { stroke-dasharray: 0 1000; }
+}
+/* React Bits — Shiny text */
+@keyframes shine {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+/* Aceternity — Spotlight */
+@keyframes spotlight {
+  0% { opacity: 0; transform: translate(-72%, -62%) scale(0.5); }
+  100% { opacity: 1; transform: translate(-50%, -40%) scale(1); }
 }
 @keyframes livedot {
   0%, 100% { box-shadow: 0 0 0 0 rgb(46 154 98 / 0.45); }

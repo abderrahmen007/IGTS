@@ -11,6 +11,8 @@ import { MeProvider } from "@/components/me-context";
 import { TourProvider } from "@/components/tour";
 import { AssistantWidget } from "@/components/assistant-widget";
 import { Spinner } from "@/components/ui";
+import { SmoothScroll } from "@/components/smooth-scroll";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { getSession, type SessionUser } from "@/lib/session";
 
 const ADMIN_ONLY = ["/dashboard/companies", "/dashboard/texts", "/dashboard/referentiel", "/dashboard/admins"];
@@ -96,20 +98,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <SessionContext.Provider value={user}>
-      <OverlayProvider>
-        {user.type === "company" ? (
-          <LiveProvider>
-            <MeProvider>
-              <TourProvider>
-                {shell}
-                <AssistantWidget />
-              </TourProvider>
-            </MeProvider>
-          </LiveProvider>
-        ) : (
-          shell
-        )}
-      </OverlayProvider>
+      <SmoothScroll>
+        <TooltipProvider delayDuration={250}>
+          <OverlayProvider>
+            {user.type === "company" ? (
+              <LiveProvider>
+                <MeProvider>
+                  <TourProvider>
+                    {shell}
+                    <AssistantWidget />
+                  </TourProvider>
+                </MeProvider>
+              </LiveProvider>
+            ) : (
+              shell
+            )}
+          </OverlayProvider>
+        </TooltipProvider>
+      </SmoothScroll>
     </SessionContext.Provider>
   );
 }
