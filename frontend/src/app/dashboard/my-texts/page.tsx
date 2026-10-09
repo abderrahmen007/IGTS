@@ -84,6 +84,40 @@ function MyTextsView() {
           />
         </div>
 
+        {/* Domaines / Secteurs filter pills (Image 1) */}
+        <div className="flex items-center gap-2 overflow-x-auto border-b border-ink-150 px-5 py-3 scrollbar-none">
+          <button
+            type="button"
+            onClick={() => setQ({ secteurId: null })}
+            className={cn(
+              "shrink-0 rounded-full px-4 py-1.5 text-[13.5px] font-semibold transition-all duration-150",
+              !q.secteurId
+                ? "bg-brand-900 text-white shadow-sm ring-1 ring-brand-900"
+                : "border border-ink-200/90 bg-white text-ink-700 hover:border-brand-300 hover:text-brand-900",
+            )}
+          >
+            Tous les domaines
+          </button>
+          {filters?.secteurs.map((s) => {
+            const active = String(s.id) === q.secteurId;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setQ({ secteurId: active ? null : String(s.id) })}
+                className={cn(
+                  "shrink-0 rounded-full px-4 py-1.5 text-[13.5px] font-semibold transition-all duration-150",
+                  active
+                    ? "bg-brand-900 text-white shadow-sm ring-1 ring-brand-900"
+                    : "border border-ink-200/90 bg-white text-ink-700 hover:border-brand-300 hover:text-brand-900",
+                )}
+              >
+                {s.name}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="flex flex-col gap-3 border-b border-ink-150 px-5 py-3 md:flex-row md:items-center">
           <SearchInput
             value={search}
@@ -91,25 +125,12 @@ function MyTextsView() {
             placeholder="Rechercher un titre, un numéro, un mot-clé…"
             className="md:max-w-sm md:flex-1"
           />
-          <div className="grid grid-cols-2 gap-3 md:flex">
-            <Select
-              aria-label="Secteur"
-              value={q.secteurId}
-              onChange={(e) => setQ({ secteurId: e.target.value })}
-              className="md:w-56"
-            >
-              <option value="">Tous les secteurs</option>
-              {filters?.secteurs.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
+          <div className="flex items-center gap-3">
             <Select
               aria-label="Type de texte"
               value={q.typeId}
               onChange={(e) => setQ({ typeId: e.target.value })}
-              className="md:w-44"
+              className="w-full sm:w-48"
             >
               <option value="">Tous les types</option>
               {filters?.types.map((t) => (

@@ -18,7 +18,7 @@ import {
   actionBlockReason,
   statusFromIds,
 } from "@/lib/status";
-import type { TextDetail } from "@/lib/types";
+import type { AiActionSuggestion, AiActionsResponse, TextDetail } from "@/lib/types";
 
 /** Initial answers shown in the panel (a "non analysé" text starts empty). */
 function initial(detail: TextDetail) {
@@ -89,6 +89,8 @@ export function EvaluationPanel({
   const [draft, setDraft] = useState({ description: "", responsable: "", dateCloture: "" });
   const [addFollowUp, setAddFollowUp] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<AiActionSuggestion[] | null>(null);
+  const [loadingAi, setLoadingAi] = useState(false);
 
   // A new version of the text (after saving, or the next text): start from it
   const [shown, setShown] = useState(detail);
@@ -98,7 +100,33 @@ export function EvaluationPanel({
     setComment(detail.comment ?? "");
     setDraft({ description: "", responsable: "", dateCloture: "" });
     setAddFollowUp(false);
+    setAiSuggestions(null);
+    setLoadingAi(false);
   }
+
+  const loadAiSuggestions = async () => {
+    setLoadingAi(true);
+    try {
+      const res = await api<AiActionsResponse>(`/company/texts/${detail.id}/ai-actions`);
+      setAiSuggestions(res.actions);
+      toast("Suggestions d'actions générées par l'IA.");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Impossible de charger les suggestions.", "error");
+    } finally {
+      setLoadingAi(false);
+    }
+  };
+
+  const applySuggestion = (s: AiActionSuggestion) => {
+    const d = new Date();
+    d.setDate(d.getDate() + (s.delaiJours || 30));
+    setDraft({
+      description: s.description,
+      responsable: s.responsable,
+      dateCloture: d.toISOString().slice(0, 10),
+    });
+    toast("Action suggérée appliquée au formulaire.");
+  };
 
   const saved = initial(detail);
   const blockReason = actionBlockReason(app, etat);
@@ -311,6 +339,54 @@ export function EvaluationPanel({
               )}
               {showForm && canEdit ? (
                 <div className="animate-[rise_280ms_var(--ease-out-soft)] flex flex-col gap-3">
+                  {/* AI Suggest Action Helper */}
+                  <div className="rounded-xl border border-brand-200/90 bg-brand-50/60 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-brand-900">
+                        <Icon name="sparkle" size={15} className="text-brand-700" />
+                        Suggérer une action avec l'IA
+                      </span>
+                      <button
+                        type="button"
+                        disabled={loadingAi}
+                        onClick={loadAiSuggestions}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-brand-800 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-900 disabled:opacity-50"
+                      >
+                        <Icon name="sparkle" size={13} />
+                        {loadingAi ? "Génération…" : "Proposer des actions"}
+                      </button>
+                    </div>
+
+                    {aiSuggestions && (
+                      <div className="mt-2.5 flex flex-col gap-2 border-t border-brand-200/60 pt-2">
+                        <p className="text-[11.5px] font-medium text-ink-600">
+                          Cliquez sur une action recommandée pour l'appliquer :
+                        </p>
+                        <div className="flex flex-col gap-2">
+                          {aiSuggestions.map((s, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => applySuggestion(s)}
+                              className="group flex flex-col gap-1 rounded-xl border border-brand-200/80 bg-white p-2.5 text-left transition hover:border-brand-500 hover:shadow-xs"
+                            >
+                              <span className="text-[12.5px] font-semibold text-ink-900 group-hover:text-brand-800">
+                                {s.description}
+                              </span>
+                              <div className="flex flex-wrap gap-2 text-[11px] text-ink-600">
+                                <span className="rounded bg-paper px-1.5 py-0.5 font-medium">👤 {s.responsable}</span>
+                                <span className="rounded bg-paper px-1.5 py-0.5 font-medium">⏳ +{s.delaiJours} jours</span>
+                                <span className="rounded bg-saffron-100 px-1.5 py-0.5 font-semibold text-saffron-800">
+                                  {s.priorite}
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink-700">
                     Que faut-il faire ?
                     <Textarea
@@ -349,14 +425,27 @@ export function EvaluationPanel({
                 </div>
               ) : (
                 canEdit && (
-                  <button
-                    type="button"
-                    onClick={() => setAddFollowUp(true)}
-                    className="flex h-11 items-center gap-2 rounded-[10px] border-[1.5px] border-dashed border-ink-300 bg-white px-3.5 text-[13.5px] font-semibold text-brand-800 hover:border-brand-600"
-                  >
-                    <Icon name="plus" size={16} strokeWidth={2} />
-                    {etat === CONFORME ? "Ajouter une action de suivi" : "Ajouter une autre action"}
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAddFollowUp(true)}
+                      className="flex h-11 items-center gap-2 rounded-[10px] border-[1.5px] border-dashed border-ink-300 bg-white px-3.5 text-[13.5px] font-semibold text-brand-800 hover:border-brand-600"
+                    >
+                      <Icon name="plus" size={16} strokeWidth={2} />
+                      {etat === CONFORME ? "Ajouter une action de suivi" : "Ajouter une autre action"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddFollowUp(true);
+                        void loadAiSuggestions();
+                      }}
+                      className="flex h-11 items-center gap-2 rounded-[10px] border border-brand-300 bg-brand-50/70 px-3.5 text-[13.5px] font-semibold text-brand-800 hover:bg-brand-100"
+                    >
+                      <Icon name="sparkle" size={16} strokeWidth={2} />
+                      Suggérer avec l'IA
+                    </button>
+                  </div>
                 )
               )}
             </>

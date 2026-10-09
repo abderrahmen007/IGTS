@@ -7,7 +7,7 @@ import { Button, Field, Input, Progress, Textarea, cn, toneBadge } from "./ui";
 import { api, apiForm, ApiError } from "@/lib/api";
 import { formatDate, initials } from "@/lib/format";
 import { ACTION_COLUMNS, ACTION_EFFICACE, dueChip } from "@/lib/status";
-import type { ActionPlan, TextDetail } from "@/lib/types";
+import type { ActionPlan, AiActionSuggestion, AiActionsResponse, TextDetail } from "@/lib/types";
 
 const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx";
 
@@ -87,6 +87,8 @@ export function ActionEditor({
   });
   const [files, setFiles] = useState<ActionPlan["files"]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<AiActionSuggestion[] | null>(null);
+  const [loadingAi, setLoadingAi] = useState(false);
 
   const [shown, setShown] = useState<ActionPlan | null>(null);
   if (action && action !== shown) {
@@ -101,7 +103,35 @@ export function ActionEditor({
       effectivite: action.effectivite ?? 0,
     });
     setFiles(action.files);
+    setAiSuggestions(null);
+    setLoadingAi(false);
   }
+
+  const loadAiSuggestions = async () => {
+    if (!action?.texteSocieteId) return;
+    setLoadingAi(true);
+    try {
+      const res = await api<AiActionsResponse>(`/company/texts/${action.texteSocieteId}/ai-actions`);
+      setAiSuggestions(res.actions);
+      toast("Suggestions d'actions générées par l'IA.");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Impossible de charger les suggestions.", "error");
+    } finally {
+      setLoadingAi(false);
+    }
+  };
+
+  const applySuggestion = (s: AiActionSuggestion) => {
+    const d = new Date();
+    d.setDate(d.getDate() + (s.delaiJours || 30));
+    setForm({
+      ...form,
+      description: s.description,
+      responsable: s.responsable,
+      dateCloture: d.toISOString().slice(0, 10),
+    });
+    toast("Action suggérée appliquée au formulaire.");
+  };
 
   if (!action) return null;
 
@@ -206,6 +236,55 @@ export function ActionEditor({
       }
     >
       <form id="action-editor" onSubmit={save} className="flex flex-col gap-5">
+        {action.texteSocieteId && (
+          <div className="rounded-xl border border-brand-200/90 bg-brand-50/60 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 text-xs font-bold text-brand-900">
+                <Icon name="sparkle" size={15} className="text-brand-700" />
+                Suggérer une action avec l'IA
+              </span>
+              <button
+                type="button"
+                disabled={loadingAi}
+                onClick={loadAiSuggestions}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-800 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-900 disabled:opacity-50"
+              >
+                <Icon name="sparkle" size={13} />
+                {loadingAi ? "Génération…" : "Proposer des actions"}
+              </button>
+            </div>
+
+            {aiSuggestions && (
+              <div className="mt-2.5 flex flex-col gap-2 border-t border-brand-200/60 pt-2">
+                <p className="text-[11.5px] font-medium text-ink-600">
+                  Cliquez sur une action recommandée pour mettre à jour les champs :
+                </p>
+                <div className="flex flex-col gap-2">
+                  {aiSuggestions.map((s, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => applySuggestion(s)}
+                      className="group flex flex-col gap-1 rounded-xl border border-brand-200/80 bg-white p-2.5 text-left transition hover:border-brand-500 hover:shadow-xs"
+                    >
+                      <span className="text-[12.5px] font-semibold text-ink-900 group-hover:text-brand-800">
+                        {s.description}
+                      </span>
+                      <div className="flex flex-wrap gap-2 text-[11px] text-ink-600">
+                        <span className="rounded bg-paper px-1.5 py-0.5 font-medium">👤 {s.responsable}</span>
+                        <span className="rounded bg-paper px-1.5 py-0.5 font-medium">⏳ +{s.delaiJours} jours</span>
+                        <span className="rounded bg-saffron-100 px-1.5 py-0.5 font-semibold text-saffron-800">
+                          {s.priorite}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <Field label="Que faut-il faire ?" htmlFor="ae-desc">
           <Textarea id="ae-desc" rows={3} required minLength={3} value={form.description} onChange={set("description")} />
         </Field>
