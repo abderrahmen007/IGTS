@@ -20,12 +20,24 @@ function Notifications() {
   const data = live?.notifications ?? null;
   const unread = data?.unread ?? 0;
 
+  const handleOpen = () => {
+    if (unread > 0) {
+      void live?.markAllRead();
+    }
+  };
+
   return (
     <Popover
+      onOpenChange={(open) => {
+        if (open) handleOpen();
+      }}
       className="w-[min(380px,calc(100vw-2rem))]"
       trigger={({ toggle, open }) => (
         <button
-          onClick={toggle}
+          onClick={() => {
+            if (!open) handleOpen();
+            toggle();
+          }}
           aria-expanded={open}
           aria-label={`Notifications${unread ? ` (${unread} non lues)` : ""}`}
           className={cn(CHIP, "relative w-11", open && "bg-white")}
@@ -72,11 +84,24 @@ function Notifications() {
                 return (
                   <li key={n.id}>
                     {n.texteSocieteId ? (
-                      <Link href={`/dashboard/my-texts/${n.texteSocieteId}`} onClick={close} className="block">
+                      <Link
+                        href={`/dashboard/my-texts/${n.texteSocieteId}`}
+                        onClick={() => {
+                          if (!n.read) void live?.markItemRead(n.id);
+                          close();
+                        }}
+                        className="block"
+                      >
                         {body}
                       </Link>
                     ) : (
-                      body
+                      <div
+                        onClick={() => {
+                          if (!n.read) void live?.markItemRead(n.id);
+                        }}
+                      >
+                        {body}
+                      </div>
                     )}
                   </li>
                 );

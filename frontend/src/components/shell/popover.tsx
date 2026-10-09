@@ -9,21 +9,38 @@ export function Popover({
   children,
   align = "right",
   className,
+  onOpenChange,
 }: {
   trigger: (props: { open: boolean; toggle: () => void }) => ReactNode;
   children: (close: () => void) => ReactNode;
   align?: "left" | "right";
   className?: string;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
+  const toggle = () => {
+    setOpen((cur) => {
+      const next = !cur;
+      onOpenChange?.(next);
+      return next;
+    });
+  };
+
+  const close = () => {
+    setOpen(false);
+    onOpenChange?.(false);
+  };
+
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) close();
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
     return () => {
@@ -34,7 +51,7 @@ export function Popover({
 
   return (
     <div ref={ref} className="relative">
-      {trigger({ open, toggle: () => setOpen((o) => !o) })}
+      {trigger({ open, toggle })}
       {open && (
         <div
           className={cn(

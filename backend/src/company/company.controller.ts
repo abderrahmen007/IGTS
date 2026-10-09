@@ -226,7 +226,12 @@ export class CompanyController {
   }
 
   @Post('notifications/read')
-  markRead(@CurrentUser() user: AuthUser) {
-    return this.service.markNotificationsRead(user);
+  markRead(@CurrentUser() user: AuthUser, @Body() body?: { id?: number }) {
+    return this.service.markNotificationsRead(user, body?.id);
+  }
+
+  @Post('notifications/:id/read')
+  markOneRead(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
+    return this.service.markNotificationsRead(user, id);
   }
 }

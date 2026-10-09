@@ -13,6 +13,7 @@ interface LiveState {
   version: number;
   reload: () => void;
   markAllRead: () => Promise<void>;
+  markItemRead: (id: number) => Promise<void>;
   connected: boolean;
 }
 
@@ -107,12 +108,41 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   }, [reload]);
 
   const markAllRead = useCallback(async () => {
+    // Optimistic UI update: immediately clear unread badge and mark all items read
+    setNotifications((prev) =>
+      prev
+        ? {
+            ...prev,
+            unread: 0,
+            items: prev.items.map((it) => ({ ...it, read: true })),
+          }
+        : null,
+    );
     await api("/company/notifications/read", { method: "POST" }).catch(() => undefined);
     reload();
   }, [reload]);
 
+  const markItemRead = useCallback(
+    async (id: number) => {
+      // Optimistic UI update: decrement unread and mark this specific item read
+      setNotifications((prev) => {
+        if (!prev) return null;
+        const target = prev.items.find((it) => it.id === id);
+        const wasUnread = target && !target.read;
+        return {
+          ...prev,
+          unread: wasUnread ? Math.max(0, prev.unread - 1) : prev.unread,
+          items: prev.items.map((it) => (it.id === id ? { ...it, read: true } : it)),
+        };
+      });
+      await api("/company/notifications/read", { method: "POST", body: { id } }).catch(() => undefined);
+      reload();
+    },
+    [reload],
+  );
+
   return (
-    <LiveContext.Provider value={{ notifications, stats, version, reload, markAllRead, connected }}>
+    <LiveContext.Provider value={{ notifications, stats, version, reload, markAllRead, markItemRead, connected }}>
       {children}
     </LiveContext.Provider>
   );

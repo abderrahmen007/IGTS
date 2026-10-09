@@ -1016,20 +1016,30 @@ export class CompanyService {
       : { companyId: user.ownerId!, id: { gt: seen } };
   }
 
-  async markNotificationsRead(user: AuthUser) {
-    const last = await this.prisma.notification.findFirst({
-      where: { companyId: user.ownerId! },
-      orderBy: { id: 'desc' },
-      select: { id: true },
-    });
-    await this.prefs.update(user.id, { notificationsReadUpTo: last?.id ?? 0 });
-    // The main account keeps the shared legacy flag in step, as Symfony did
+  async markNotificationsRead(user: AuthUser, id?: number) {
     let count = 0;
-    if (user.id === user.ownerId) {
-      ({ count } = await this.prisma.notification.updateMany({
-        where: { companyId: user.ownerId, OR: [{ isRead: false }, { isRead: null }] },
+    if (id) {
+      const res = await this.prisma.notification.updateMany({
+        where: { id, companyId: user.ownerId! },
         data: { isRead: true, etat: 'lu' },
-      }));
+      });
+      count = res.count;
+      const seen = this.prefs.get(user.id).notificationsReadUpTo ?? 0;
+      if (id > seen) {
+        await this.prefs.update(user.id, { notificationsReadUpTo: id });
+      }
+    } else {
+      const last = await this.prisma.notification.findFirst({
+        where: { companyId: user.ownerId! },
+        orderBy: { id: 'desc' },
+        select: { id: true },
+      });
+      await this.prefs.update(user.id, { notificationsReadUpTo: last?.id ?? 0 });
+      const res = await this.prisma.notification.updateMany({
+        where: { companyId: user.ownerId!, OR: [{ isRead: false }, { isRead: null }] },
+        data: { isRead: true, etat: 'lu' },
+      });
+      count = res.count;
     }
     this.notifier.refresh(user.ownerId!);
     return { updated: count };
