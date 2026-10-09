@@ -2,6 +2,7 @@ import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CompanyOnlyGuard, CurrentUser } from '../common/auth-user';
 import type { AuthUser } from '../common/auth-user';
 import { ChatbotService } from './chatbot.service';
@@ -17,6 +18,8 @@ class AskDto {
   texteSocieteId?: number;
 }
 
+@ApiTags('Assistant Juridique IA (Chatbot RAG)')
+@ApiBearerAuth('JWT-auth')
 @UseGuards(AuthGuard('jwt'), CompanyOnlyGuard)
 @Controller('chatbot')
 export class ChatbotController {

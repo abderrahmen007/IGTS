@@ -3,8 +3,11 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Plusaction, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { FilesService, UploadedFile, joinFiles, splitFiles } from '../files/files.service';
@@ -125,12 +128,20 @@ const TEXT_INCLUDE = {
 
 @Injectable()
 export class CompanyService {
+  private readonly logger = new Logger(CompanyService.name);
+
   constructor(
     private prisma: PrismaService,
     private files: FilesService,
     private notifier: NotificationsService,
     private prefs: PreferencesService,
+    private config: ConfigService,
   ) {}
+
+  private get genAI(): GoogleGenerativeAI | null {
+    const key = this.config.get<string>('GEMINI_API_KEY')?.trim();
+    return key ? new GoogleGenerativeAI(key) : null;
+  }
 
   private scope(user: AuthUser): Prisma.TexteSocieteWhereInput {
     return { companyId: user.ownerId!, ...NOT_DELETED, texte: { deleted: false } };
@@ -1048,5 +1059,177 @@ export class CompanyService {
       evaluatedBy: ts.quifairetat,
       updatedSinceEvaluation: updatedSince(t.updatedAt, ts.datequifairetat),
     };
+  }
+
+  /**
+   * AI Applicability Analysis: Compares the regulatory text against the company's
+   * specific profile, sector subscriptions, and facilities to evaluate practical impact.
+   */
+  async analyzeImpact(user: AuthUser, id: number) {
+    const ts = await this.findOwned(user, id);
+    const t = ts.texte!;
+
+    const company = await this.prisma.company.findUnique({
+      where: { id: user.ownerId! },
+      include: {
+        companySecteurThemes: {
+          include: { secteur: true, theme: true },
+        },
+        companyThemes: {
+          include: { theme: true, secteur: true },
+        },
+      },
+    });
+
+    const sectorsAndThemes = [
+      ...(company?.companySecteurThemes || []).map(
+        (st) => `${st.secteur?.name || ''} › ${st.theme?.name || ''}`,
+      ),
+      ...(company?.companyThemes || []).map(
+        (ct) => `${ct.secteur?.name || ''} › ${ct.theme?.name || ''}`,
+      ),
+    ].filter(Boolean);
+
+    const companyProfile = {
+      nom: company?.nom || company?.raisonsociale || 'Entreprise cliente',
+      ville: company?.ville || 'Tunisie',
+      secteurs: Array.from(new Set(sectorsAndThemes)).slice(0, 8),
+    };
+
+    if (!this.genAI) {
+      return {
+        applicable: true,
+        verdict: 'Applicable à votre secteur (Mode hors-ligne)',
+        degreImpact: 'Moyen',
+        justification: `Ce texte s'inscrit dans le domaine « ${t.secteur?.name || 'Général'} › ${t.theme?.name || ''} » suivi par votre établissement.`,
+        pointsVigilance: ['Vérifier les exigences applicables à vos installations'],
+        recommandations: ['Consulter le texte officiel PDF', 'Réaliser une auto-évaluation'],
+      };
+    }
+
+    const prompt = `Tu es un juriste et auditeur expert en réglementation tunisienne (Santé & Sécurité au Travail, Environnement, Droit du travail et Industrie) pour le cabinet de conseil IGTS.
+Un responsable QHSE d'une entreprise consulte un nouveau texte réglementaire dans son tableau de bord et demande une analyse d'impact personnalisée.
+
+ENTREPRISE :
+- Raison sociale : ${companyProfile.nom}
+- Localisation : ${companyProfile.ville}
+- Domaines et thèmes d'activité suivis : ${companyProfile.secteurs.join(', ') || 'Industrie et Services généraux'}
+
+TEXTE RÉGLEMENTAIRE :
+- Titre : ${t.titre}
+- Type : ${t.type?.name || 'Réglementation'}
+- Domaine : ${t.secteur?.name || ''} › ${t.theme?.name || ''}
+- Date / Journal : ${t.journal} du ${t.date}
+- Résumé du texte : ${t.description}
+
+MISSION :
+Analyse précisément et avec pragmatisme si ce texte a un impact direct ou indirect sur cette entreprise, pourquoi, et ce qu'elle doit surveiller.
+Réponds UNIQUEMENT au format JSON strict avec ce schéma :
+{
+  "applicable": boolean (true si l'entreprise est concernée ou susceptible de l'être, false si ce texte ne la concerne manifestement pas),
+  "verdict": "string court" (ex: "Directement applicable à vos installations", "Applicable sous condition d'effectif ou d'activité", "Non applicable à votre secteur", etc.),
+  "degreImpact": "Élevé" | "Moyen" | "Faible",
+  "justification": "Explication claire et professionnelle de 2 à 4 phrases justifiant la décision et expliquant ce que la réglementation exige concrètement pour cette entreprise.",
+  "pointsVigilance": [
+    "Point de vigilance précis 1",
+    "Point de vigilance précis 2",
+    "Point de vigilance précis 3"
+  ],
+  "recommandations": [
+    "Recommandation concrète d'action 1",
+    "Recommandation concrète d'action 2"
+  ]
+}`;
+
+    try {
+      const model = this.genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash',
+        generationConfig: {
+          temperature: 0.1,
+          responseMimeType: 'application/json',
+        },
+      });
+      const result = await model.generateContent(prompt);
+      return JSON.parse(result.response.text());
+    } catch (e) {
+      this.logger.error(`Error in analyzeImpact: ${(e as Error).message}`);
+      return {
+        applicable: true,
+        verdict: 'Applicable à votre secteur',
+        degreImpact: 'Moyen',
+        justification: `Le texte concerne le domaine « ${t.secteur?.name || ''} ». Veuillez vérifier son application à vos installations.`,
+        pointsVigilance: ['Vérifier les seuils applicables'],
+        recommandations: ['Consulter le texte officiel PDF'],
+      };
+    }
+  }
+
+  /**
+   * AI Action Suggestions: Generates 2 to 4 recommended compliance actions
+   * tailored to the legal requirements of this text.
+   */
+  async suggestActions(user: AuthUser, id: number) {
+    const ts = await this.findOwned(user, id);
+    const t = ts.texte!;
+
+    if (!this.genAI) {
+      return {
+        actions: [
+          {
+            description: `Analyser les obligations et vérifier la conformité des installations`,
+            responsable: 'Responsable QHSE',
+            delaiJours: 30,
+            priorite: 'Moyenne',
+          },
+        ],
+      };
+    }
+
+    const prompt = `Tu es un auditeur et expert en conformité réglementaire QHSE chez IGTS Tunisie.
+Pour le texte de loi suivant, suggère un plan d'action de 2 à 4 actions correctives ou préventives concrètes et adaptées pour une entreprise industrielle ou tertiaire.
+
+TEXTE :
+- Titre : ${t.titre}
+- Type : ${t.type?.name || 'Réglementation'}
+- Domaine : ${t.secteur?.name || ''} › ${t.theme?.name || ''}
+- Contenu : ${t.description}
+
+MISSION :
+Rédige 2 à 4 actions concrètes, formulées avec un verbe à l'infinitif (ex: "Mettre à jour le registre de sécurité", "Planifier la formation des opérateurs", "Vérifier la validité des contrôles périodiques").
+Réponds UNIQUEMENT au format JSON strict avec ce schéma :
+{
+  "actions": [
+    {
+      "description": "Description claire et opérationnelle de l'action à mener",
+      "responsable": "Titre du responsable suggéré (ex: Responsable QHSE, Responsable Maintenance, DRH, Direction)",
+      "delaiJours": 15 | 30 | 60 | 90,
+      "priorite": "Haute" | "Moyenne" | "Basse"
+    }
+  ]
+}`;
+
+    try {
+      const model = this.genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash',
+        generationConfig: {
+          temperature: 0.2,
+          responseMimeType: 'application/json',
+        },
+      });
+      const result = await model.generateContent(prompt);
+      return JSON.parse(result.response.text());
+    } catch (e) {
+      this.logger.error(`Error in suggestActions: ${(e as Error).message}`);
+      return {
+        actions: [
+          {
+            description: `Analyser les obligations du texte et planifier les vérifications nécessaires`,
+            responsable: 'Responsable QHSE',
+            delaiJours: 30,
+            priorite: 'Moyenne',
+          },
+        ],
+      };
+    }
   }
 }

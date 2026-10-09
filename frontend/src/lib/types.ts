@@ -152,6 +152,26 @@ export interface TextDetail {
   options: { applicabilites: Ref[]; etats: Ref[]; actionStates: Ref[] };
 }
 
+export interface AiImpactResponse {
+  applicable: boolean;
+  verdict: string;
+  degreImpact: 'Élevé' | 'Moyen' | 'Faible';
+  justification: string;
+  pointsVigilance: string[];
+  recommandations: string[];
+}
+
+export interface AiActionSuggestion {
+  description: string;
+  responsable: string;
+  delaiJours: number;
+  priorite: 'Haute' | 'Moyenne' | 'Basse';
+}
+
+export interface AiActionsResponse {
+  actions: AiActionSuggestion[];
+}
+
 export interface ActionsResponse {
   items: ActionPlan[];
   counts: {

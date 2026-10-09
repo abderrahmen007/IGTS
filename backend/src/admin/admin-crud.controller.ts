@@ -45,8 +45,12 @@ import {
   ThemeDto,
 } from './admin.dto';
 
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+
 const pdfUpload = FileInterceptor('pdf', { limits: { fileSize: MAX_PDF_SIZE } });
 
+@ApiTags('Administration IGTS (CRUD)')
+@ApiBearerAuth('JWT-auth')
 @UseGuards(AuthGuard('jwt'), AdminOnlyGuard)
 @Controller('admin')
 export class AdminCrudController {

@@ -27,17 +27,32 @@ function keywords(question: string) {
   ];
 }
 
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (!a || !b || a.length !== b.length) return 0;
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  const denom = Math.sqrt(normA) * Math.sqrt(normB);
+  return denom ? dot / denom : 0;
+}
+
 /**
  * Legal assistant restricted to the texts assigned to the caller's company.
  *
- * Retrieval: keyword scoring over titles and summaries (no vector store yet).
- * Only the most relevant texts are sent to the LLM (Gemini), and the model is told
- * to answer from them only and to say so when the answer is not there.
+ * Retrieval: Hybrid RAG combining semantic vector embeddings (models/gemini-embedding-001)
+ * with keyword frequency scoring, backed by an in-memory vector cache.
  */
 @Injectable()
 export class ChatbotService {
   private readonly logger = new Logger(ChatbotService.name);
   private readonly genAI: GoogleGenerativeAI | null = null;
+  /** In-memory embedding cache: textId -> 3072-dim vector */
+  private readonly textEmbeddings = new Map<number, number[]>();
 
   constructor(
     private prisma: PrismaService,
@@ -51,6 +66,19 @@ export class ChatbotService {
     }
   }
 
+  /** Embeds text with fallback to null on error */
+  private async getEmbedding(text: string): Promise<number[] | null> {
+    if (!this.genAI) return null;
+    try {
+      const model = this.genAI.getGenerativeModel({ model: 'models/gemini-embedding-001' });
+      const res = await model.embedContent(text.slice(0, 2048));
+      return res.embedding?.values ?? null;
+    } catch (e) {
+      this.logger.warn(`Failed to embed content: ${(e as Error).message}`);
+      return null;
+    }
+  }
+
   async ask(user: AuthUser, question: string, focusId?: number) {
     const rows = await this.prisma.texteSociete.findMany({
       where: {
@@ -58,21 +86,61 @@ export class ChatbotService {
         OR: [{ deleted: false }, { deleted: null }],
         texte: { deleted: false },
       },
-      select: { id: true, texte: { select: { titre: true, description: true, date: true } } },
+      select: {
+        id: true,
+        texteId: true,
+        texte: { select: { id: true, titre: true, description: true, date: true } },
+      },
     });
 
     const terms = keywords(question);
-    const ranked = rows
-      .map((r) => {
-        const titre = normalize(r.texte!.titre);
-        const desc = normalize(r.texte!.description);
-        let score = 0;
-        for (const t of terms) {
-          if (titre.includes(t)) score += 3;
-          score += Math.min(desc.split(t).length - 1, 5);
+
+    // Compute semantic query embedding if AI is enabled
+    let queryEmbedding: number[] | null = null;
+    if (this.genAI && question.trim().length > 3) {
+      queryEmbedding = await this.getEmbedding(question);
+    }
+
+    // Rank documents using hybrid scoring (Semantic Cosine + Keyword Frequency)
+    const scoredPromises = rows.map(async (r) => {
+      const t = r.texte!;
+      const titreNorm = normalize(t.titre);
+      const descNorm = normalize(t.description);
+
+      // 1. Keyword score (lexical matching)
+      let keywordScore = 0;
+      for (const term of terms) {
+        if (titreNorm.includes(term)) keywordScore += 4;
+        const matches = descNorm.split(term).length - 1;
+        keywordScore += Math.min(matches, 5);
+      }
+
+      // 2. Vector semantic score
+      let semanticScore = 0;
+      if (queryEmbedding && t.id) {
+        let docVector = this.textEmbeddings.get(t.id);
+        if (!docVector) {
+          const docContent = `${t.titre}\n${t.description}`.slice(0, 1500);
+          const computed = await this.getEmbedding(docContent);
+          if (computed) {
+            docVector = computed;
+            this.textEmbeddings.set(t.id, docVector);
+          }
         }
-        return { r, score };
-      })
+        if (docVector) {
+          const sim = cosineSimilarity(queryEmbedding, docVector);
+          // Scale cosine similarity (-1..1) to boost ranking: sim > 0.65 is high relevance
+          semanticScore = sim > 0.5 ? Math.pow(sim, 2) * 20 : 0;
+        }
+      }
+
+      const totalScore = keywordScore + semanticScore;
+      return { r, score: totalScore, keywordScore, semanticScore };
+    });
+
+    const evaluated = await Promise.all(scoredPromises);
+
+    const ranked = evaluated
       .map((x) => (x.r.id === focusId ? { ...x, score: x.score + 1000 } : x))
       .filter((x) => x.score > 0)
       .sort((a, b) => b.score - a.score)

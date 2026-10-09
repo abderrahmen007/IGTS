@@ -1,9 +1,12 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AdminOnlyGuard } from '../common/auth-user';
 import { AdminListQuery, AdminService } from './admin.service';
 
 /** IGTS back-office endpoints. */
+@ApiTags('Administration IGTS (Vue globale)')
+@ApiBearerAuth('JWT-auth')
 @UseGuards(AuthGuard('jwt'), AdminOnlyGuard)
 @Controller('admin')
 export class AdminController {

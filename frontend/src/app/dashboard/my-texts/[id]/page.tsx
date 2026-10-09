@@ -13,7 +13,13 @@ import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { formatDate, plural } from "@/lib/format";
 import { APPLICABLE, CONFORME, statusFromIds } from "@/lib/status";
-import type { ActionPlan, TextDetail } from "@/lib/types";
+import type { ActionPlan, AiActionSuggestion, AiActionsResponse, TextDetail } from "@/lib/types";
+
+function futureDate(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 function NewActionModal({
   detail,
@@ -29,7 +35,33 @@ function NewActionModal({
   const toast = useToast();
   const [form, setForm] = useState({ description: "", responsable: "", telephone: "", dateCloture: "" });
   const [saving, setSaving] = useState(false);
+  const [suggestions, setSuggestions] = useState<AiActionSuggestion[] | null>(null);
+  const [loadingAi, setLoadingAi] = useState(false);
+
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
+
+  const loadAiSuggestions = async () => {
+    setLoadingAi(true);
+    try {
+      const res = await api<AiActionsResponse>(`/company/texts/${detail.id}/ai-actions`);
+      setSuggestions(res.actions);
+      toast("Suggestions d'actions générées par l'IA.");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Impossible de générer les suggestions.", "error");
+    } finally {
+      setLoadingAi(false);
+    }
+  };
+
+  const applySuggestion = (s: AiActionSuggestion) => {
+    setForm({
+      ...form,
+      description: s.description,
+      responsable: s.responsable,
+      dateCloture: futureDate(s.delaiJours || 30),
+    });
+    toast("Suggestion appliquée au formulaire.");
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -47,6 +79,7 @@ function NewActionModal({
       onSaved(d);
       toast("Action ajoutée à votre plan d’action.");
       setForm({ description: "", responsable: "", telephone: "", dateCloture: "" });
+      setSuggestions(null);
       onClose();
     } catch (err) {
       toast(err instanceof ApiError ? err.message : "Enregistrement impossible.", "error");
@@ -59,6 +92,7 @@ function NewActionModal({
     <Modal
       open={open}
       onClose={onClose}
+      size="lg"
       title="Nouvelle action"
       description="Ce qu’il faut faire, qui s’en charge et pour quand."
       footer={
@@ -72,22 +106,70 @@ function NewActionModal({
         </>
       }
     >
-      <form id="new-action" onSubmit={submit} className="flex flex-col gap-4">
-        <Field label="Que faut-il faire ?" htmlFor="na-desc">
-          <Textarea id="na-desc" rows={3} required minLength={3} value={form.description} onChange={set("description")} />
-        </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Qui s’en charge ?" htmlFor="na-resp">
-            <Input id="na-resp" value={form.responsable} onChange={set("responsable")} />
-          </Field>
-          <Field label="Téléphone" htmlFor="na-tel">
-            <Input id="na-tel" value={form.telephone} onChange={set("telephone")} inputMode="tel" />
-          </Field>
-          <Field label="Pour quand ?" htmlFor="na-date" hint="Rappel par e-mail 7 jours et 1 jour avant.">
-            <Input id="na-date" type="date" value={form.dateCloture} onChange={set("dateCloture")} />
-          </Field>
+      <div className="flex flex-col gap-4">
+        {/* AI Action Suggestions Box */}
+        <div className="rounded-2xl border border-brand-200 bg-brand-50/60 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-brand-900">
+              <Icon name="sparkle" size={17} className="text-brand-700" />
+              <span className="text-[13.5px] font-bold">Besoin d'inspiration réglementaire ?</span>
+            </div>
+            <button
+              type="button"
+              disabled={loadingAi}
+              onClick={loadAiSuggestions}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-800 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-900 disabled:opacity-50"
+            >
+              <Icon name="sparkle" size={13} />
+              {loadingAi ? "Génération en cours…" : "Suggérer des actions avec l'IA"}
+            </button>
+          </div>
+
+          {suggestions && (
+            <div className="mt-3 flex flex-col gap-2 pt-2">
+              <p className="text-xs font-medium text-ink-600">
+                Cliquez sur une suggestion ci-dessous pour remplir automatiquement le formulaire :
+              </p>
+              <div className="flex flex-col gap-2">
+                {suggestions.map((s, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => applySuggestion(s)}
+                    className="flex flex-col gap-1.5 rounded-xl border border-brand-200/80 bg-white p-3 text-left transition-all hover:border-brand-400 hover:shadow-sm"
+                  >
+                    <span className="text-[13px] font-semibold text-ink-900">{s.description}</span>
+                    <div className="flex flex-wrap gap-2 text-[11px] text-ink-600">
+                      <span className="rounded bg-paper px-1.5 py-0.5">👤 {s.responsable}</span>
+                      <span className="rounded bg-paper px-1.5 py-0.5">⏳ Échéance : +{s.delaiJours} jours</span>
+                      <span className="rounded bg-saffron-100 px-1.5 py-0.5 font-medium text-saffron-800">
+                        Priorité : {s.priorite}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      </form>
+
+        <form id="new-action" onSubmit={submit} className="flex flex-col gap-4">
+          <Field label="Que faut-il faire ?" htmlFor="na-desc">
+            <Textarea id="na-desc" rows={3} required minLength={3} value={form.description} onChange={set("description")} />
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Qui s’en charge ?" htmlFor="na-resp">
+              <Input id="na-resp" value={form.responsable} onChange={set("responsable")} />
+            </Field>
+            <Field label="Téléphone" htmlFor="na-tel">
+              <Input id="na-tel" value={form.telephone} onChange={set("telephone")} inputMode="tel" />
+            </Field>
+            <Field label="Pour quand ?" htmlFor="na-date" hint="Rappel par e-mail 7 jours et 1 jour avant.">
+              <Input id="na-date" type="date" value={form.dateCloture} onChange={set("dateCloture")} />
+            </Field>
+          </div>
+        </form>
+      </div>
     </Modal>
   );
 }

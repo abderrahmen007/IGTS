@@ -25,6 +25,7 @@ import type { UploadedPdf } from '../files/files.service';
 import { DraftsService } from './drafts.service';
 import { DraftsStore, type DraftActor } from './drafts.store';
 import { ScraperService } from './scraper.service';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { DraftFieldsDto, DraftListQuery, RejectDraftDto } from './veille.dto';
 
 const MAX_IMPORT_SIZE = 60 * 1024 * 1024;
@@ -35,6 +36,8 @@ const actor = (me: AuthUser): DraftActor => ({
 });
 
 /** Automatic watch, for IGTS administrators: drafts, collections, imports. */
+@ApiTags('Veille & Scraper JORT (Admin)')
+@ApiBearerAuth('JWT-auth')
 @UseGuards(AuthGuard('jwt'), AdminOnlyGuard)
 @Controller('admin/veille')
 export class VeilleAdminController {
@@ -135,6 +138,7 @@ export class VeilleAdminController {
  * credential, personal to one administrator and one draft, valid 14 days)
  * and the drafts' PDFs (unguessable file names, like the texts' PDFs).
  */
+@ApiTags('Validation Veille (Publique)')
 @Controller('veille')
 export class VeillePublicController {
   constructor(

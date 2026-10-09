@@ -19,6 +19,7 @@ import { CompanyOnlyGuard, CurrentUser, EditorGuard, MainAccountGuard } from '..
 import type { AuthUser } from '../common/auth-user';
 import { MAX_PROOF_SIZE, MAX_PROOFS_PER_UPLOAD } from '../files/files.service';
 import type { UploadedFile } from '../files/files.service';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CompanyService } from './company.service';
 import { TeamService } from './team.service';
 import {
@@ -42,6 +43,8 @@ const proofUpload = FilesInterceptor('files', MAX_PROOFS_PER_UPLOAD, { limits: {
  * Endpoints that change evaluations or actions also require edit rights
  * (read-only sub-accounts are refused, as in the legacy app).
  */
+@ApiTags('Espace Entreprise')
+@ApiBearerAuth('JWT-auth')
 @UseGuards(AuthGuard('jwt'), CompanyOnlyGuard)
 @Controller('company')
 export class CompanyController {
@@ -75,6 +78,18 @@ export class CompanyController {
   @Get('texts/:id')
   textDetail(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
     return this.service.textDetail(user, id);
+  }
+
+  @ApiOperation({ summary: "Analyser l'impact et l'applicabilité d'un texte pour l'entreprise (IA Gemini)" })
+  @Get('texts/:id/ai-impact')
+  aiImpact(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
+    return this.service.analyzeImpact(user, id);
+  }
+
+  @ApiOperation({ summary: "Suggérer un plan d'action de mise en conformité avec l'IA" })
+  @Get('texts/:id/ai-actions')
+  aiActions(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
+    return this.service.suggestActions(user, id);
   }
 
   @UseGuards(EditorGuard)
