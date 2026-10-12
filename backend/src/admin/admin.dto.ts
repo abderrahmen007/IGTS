@@ -7,6 +7,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -51,6 +52,20 @@ export class CreateCompanyDto extends CompanyInfoDto {
 export class PasswordDto {
   @IsString() @MinLength(8, { message: 'Le mot de passe doit contenir au moins 8 caractères' }) @MaxLength(200)
   password!: string;
+}
+
+/** Subscription period, from the company's page (dates as YYYY-MM-DD). */
+export class SubscriptionDatesDto {
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Date de début invalide' })
+  start!: string;
+
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Date de fin invalide' })
+  end!: string;
+}
+
+export class SuspendDto {
+  @IsOptional() @IsString() @MaxLength(200)
+  reason?: string;
 }
 
 export class StatusDto {

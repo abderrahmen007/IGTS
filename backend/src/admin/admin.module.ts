@@ -8,9 +8,11 @@ import { AdminCompaniesService } from './companies.service';
 import { AdminTextsService } from './texts.service';
 import { ReferenceService } from './reference.service';
 import { AdminUsersService } from './users.service';
+import { AdminStatsService } from './stats.service';
+import { FeedbackModule } from '../feedback/feedback.module';
 
 @Module({
-  imports: [CompanyModule],
+  imports: [CompanyModule, FeedbackModule],
   controllers: [AdminController, AdminCrudController],
   providers: [
     AdminService,
@@ -19,6 +21,7 @@ import { AdminUsersService } from './users.service';
     AdminTextsService,
     ReferenceService,
     AdminUsersService,
+    AdminStatsService,
   ],
   // Used by the automatic watch to publish validated drafts like any new text
   exports: [AdminTextsService],

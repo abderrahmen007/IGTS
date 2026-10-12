@@ -6,6 +6,7 @@ import { RealtimeService } from './realtime.service';
 import { MailerService } from './mailer.service';
 import { deadlinesEmail, newTextsEmail } from './email-templates';
 import { PreferencesService } from '../preferences/preferences.service';
+import { SubscriptionsService } from '../accounts/subscriptions.service';
 import { LIVE_ACTIONS_TEXT, OPEN_ACTION_STATES, daysUntil } from '../company/rules';
 
 export interface NewTextNotification {
@@ -33,6 +34,7 @@ export class NotificationsService {
     private realtime: RealtimeService,
     private mailer: MailerService,
     private prefs: PreferencesService,
+    private subscriptions: SubscriptionsService,
     config: ConfigService,
   ) {
     this.appUrl = (config.get<string>('APP_URL') ?? 'http://localhost:3000').replace(/\/$/, '');
@@ -43,6 +45,9 @@ export class NotificationsService {
    * kind of e-mail in their profile.
    */
   private async recipients(ownerId: number, kind: 'emailNewTexts' | 'emailReminders') {
+    // A blocked company (subscription ended or suspended) gets no e-mails; its
+    // texts keep arriving in the platform, so its watch is complete on renewal
+    if (this.subscriptions.isLocked(ownerId)) return { emails: [] as string[], name: '' };
     const users = await this.prisma.company.findMany({
       where: { OR: [{ id: ownerId }, { multicompte: ownerId }], deleted: false, activated: true },
       select: { id: true, email: true, nom: true, multicompte: true },

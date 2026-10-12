@@ -13,8 +13,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { FilesService, UploadedFile, joinFiles, splitFiles } from '../files/files.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PreferencesService } from '../preferences/preferences.service';
+import { SubscriptionsService } from '../accounts/subscriptions.service';
+import { AccountRequestsService } from '../accounts/account-requests.service';
 import { AuthUser, canEditFromRights, isMainAccount } from '../common/auth-user';
-import { hashPassword, verifyPassword } from '../common/password';
 import { clampPage, htmlToText, parseFrenchDate, toFrenchDate } from '../common/text-utils';
 import {
   ACTION_EFFICACE,
@@ -36,7 +37,6 @@ import {
   suggestsCompliance,
 } from './rules';
 import {
-  ChangePasswordDto,
   CreateActionDto,
   EvaluateTextDto,
   ListActionsQuery,
@@ -136,6 +136,8 @@ export class CompanyService {
     private notifier: NotificationsService,
     private prefs: PreferencesService,
     private config: ConfigService,
+    private subscriptions: SubscriptionsService,
+    private accountRequests: AccountRequestsService,
   ) {}
 
   private get genAI(): GoogleGenerativeAI | null {
@@ -896,9 +898,11 @@ export class CompanyService {
       company: owner?.raisonsociale || owner?.nom || '',
       isSubAccount: me.multicompte > 0,
       canEdit: user.canEdit,
-      /** Only the main account changes its own password and manages the team */
-      canChangePassword: isMainAccount(user),
+      /** Passwords are managed by IGTS only (supervisor, 10/2026) */
+      canChangePassword: false,
+      /** The main account adds colleagues and sets their rights; IGTS sets their passwords */
       canManageTeam: isMainAccount(user),
+      subscription: this.subscriptions.info(user.ownerId!),
       memberSince: me.createdAt,
       stats: { evaluatedThisMonth, openActionsCreated },
       secteurs: [...secteurs.entries()].map(([id, name]) => ({ id, name })),
@@ -919,25 +923,9 @@ export class CompanyService {
     return this.profile(user);
   }
 
-  async changePassword(user: AuthUser, dto: ChangePasswordDto) {
-    // Secondary accounts' passwords are managed by the company's main account
-    if (!isMainAccount(user)) {
-      throw new ForbiddenException(
-        'Le mot de passe de ce compte est géré par le compte principal de votre entreprise.',
-      );
-    }
-    const me = await this.prisma.company.findUnique({ where: { id: user.id }, select: { password: true } });
-    if (!me || !(await verifyPassword(me.password, dto.current))) {
-      throw new BadRequestException('Le mot de passe actuel est incorrect.');
-    }
-    if (dto.current === dto.next) {
-      throw new BadRequestException('Le nouveau mot de passe doit être différent de l’actuel.');
-    }
-    await this.prisma.company.update({
-      where: { id: user.id },
-      data: { password: await hashPassword(dto.next), updatedAt: new Date() },
-    });
-    return { ok: true };
+  /** Every password is managed by IGTS (supervisor, 10/2026): no company account changes one. */
+  changePassword(): never {
+    throw new ForbiddenException('Les mots de passe sont gérés par IGTS. Contactez IGTS pour changer le vôtre.');
   }
 
   async updatePreferences(user: AuthUser, dto: PreferencesDto) {
@@ -957,6 +945,7 @@ export class CompanyService {
       },
       orderBy: [{ multicompte: 'asc' }, { nom: 'asc' }],
     });
+    const pending = this.accountRequests.pendingIds();
     return {
       canManage: isMainAccount(user),
       members: accounts.map((a) => ({
@@ -968,6 +957,8 @@ export class CompanyService {
         isMain: a.multicompte <= 0,
         canEdit: canEditFromRights(a.multicompte, a.droitacceeId),
         active: a.activated,
+        /** Added by the main account, waiting for IGTS to set the password */
+        pending: pending.has(a.id),
         isMe: a.id === user.id,
         since: a.createdAt,
       })),

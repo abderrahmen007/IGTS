@@ -27,6 +27,9 @@ import { ReferenceService } from './reference.service';
 import { AdminUsersService } from './users.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MailerService } from '../notifications/mailer.service';
+import { SubscriptionsService } from '../accounts/subscriptions.service';
+import { AccountRequestsService } from '../accounts/account-requests.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { newTextsEmail } from '../notifications/email-templates';
 import {
   AssignTextsDto,
@@ -40,7 +43,9 @@ import {
   PasswordDto,
   StatusDto,
   SubAccountDto,
+  SubscriptionDatesDto,
   SubscriptionsDto,
+  SuspendDto,
   TextDto,
   ThemeDto,
 } from './admin.dto';
@@ -61,6 +66,9 @@ export class AdminCrudController {
     private users: AdminUsersService,
     private notifications: NotificationsService,
     private mailer: MailerService,
+    private subs: SubscriptionsService,
+    private accountRequests: AccountRequestsService,
+    private prisma: PrismaService,
   ) {}
 
   // ─── Companies ─────────────────────────────────────────────────────
@@ -94,6 +102,66 @@ export class AdminCrudController {
   @Patch('accounts/:id/status')
   companyStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: StatusDto) {
     return this.companies.setActive(id, dto.active);
+  }
+
+  /** Accounts added by a company, waiting for IGTS to set their password. */
+  @Get('accounts/pending')
+  async pendingAccounts() {
+    const pending = this.accountRequests.pending();
+    const accounts = await this.prisma.company.findMany({
+      where: { id: { in: pending.map((p) => p.accountId) }, deleted: false },
+      select: { id: true, nom: true, email: true, fonction: true, multicompte: true },
+    });
+    const owners = await this.prisma.company.findMany({
+      where: { id: { in: [...new Set(accounts.map((a) => a.multicompte))] } },
+      select: { id: true, nom: true, raisonsociale: true },
+    });
+    const ownerName = new Map(owners.map((o) => [o.id, o.raisonsociale || o.nom]));
+    return accounts.map((a) => {
+      const req = pending.find((p) => p.accountId === a.id)!;
+      return {
+        id: a.id,
+        nom: a.nom,
+        email: a.email,
+        fonction: a.fonction,
+        companyId: a.multicompte,
+        company: ownerName.get(a.multicompte) ?? '',
+        requestedBy: req.requestedBy,
+        requestedAt: req.requestedAt,
+      };
+    });
+  }
+
+  /** Sets the password of an account added by a company and switches it on. */
+  @Post('accounts/:id/activate')
+  async activateAccount(@Param('id', ParseIntPipe) id: number, @Body() dto: PasswordDto, @CurrentUser() me: AuthUser) {
+    return this.accountRequests.activate(id, dto.password, me.nom);
+  }
+
+  // ─── Subscriptions (one year, renewed by IGTS once paid) ───────────
+
+  @Post('companies/:id/subscription/renew')
+  async renewSubscription(@Param('id', ParseIntPipe) id: number, @CurrentUser() me: AuthUser) {
+    await this.subs.renew(id, me.nom);
+    return this.companies.detail(id);
+  }
+
+  @Put('companies/:id/subscription')
+  async subscriptionDates(@Param('id', ParseIntPipe) id: number, @Body() dto: SubscriptionDatesDto, @CurrentUser() me: AuthUser) {
+    await this.subs.setDates(id, dto.start, dto.end, me.nom);
+    return this.companies.detail(id);
+  }
+
+  @Post('companies/:id/subscription/suspend')
+  async suspendSubscription(@Param('id', ParseIntPipe) id: number, @Body() dto: SuspendDto, @CurrentUser() me: AuthUser) {
+    await this.subs.suspend(id, dto.reason ?? '', me.nom);
+    return this.companies.detail(id);
+  }
+
+  @Post('companies/:id/subscription/resume')
+  async resumeSubscription(@Param('id', ParseIntPipe) id: number, @CurrentUser() me: AuthUser) {
+    await this.subs.resume(id, me.nom);
+    return this.companies.detail(id);
   }
 
   @Put('companies/:id/subscriptions')

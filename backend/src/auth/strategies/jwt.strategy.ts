@@ -5,6 +5,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthUser, canEditFromRights } from '../../common/auth-user';
 import { PrismaService } from '../../prisma/prisma.service';
 import { requireJwtSecret } from '../jwt-secret';
+import { SUBSCRIPTION_LOCKED, SubscriptionsService } from '../../accounts/subscriptions.service';
 
 interface JwtPayload {
   sub: number;
@@ -21,6 +22,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     config: ConfigService,
     private prisma: PrismaService,
+    private subscriptions: SubscriptionsService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -59,12 +61,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       select: { id: true, email: true, nom: true, multicompte: true, droitacceeId: true, deleted: true, activated: true },
     });
     if (!company || company.deleted || !company.activated) throw new UnauthorizedException(DISABLED);
+    const ownerId = company.multicompte > 0 ? company.multicompte : company.id;
+    const subscription = this.subscriptions.info(ownerId);
+    if (subscription.locked) {
+      // The web app recognises the code and shows the message on the sign-in page
+      throw new UnauthorizedException({ statusCode: 401, code: SUBSCRIPTION_LOCKED, message: subscription.message });
+    }
     return {
       id: company.id,
       type: 'company',
       email: company.email,
       nom: company.nom,
-      ownerId: company.multicompte > 0 ? company.multicompte : company.id,
+      ownerId,
       canEdit: canEditFromRights(company.multicompte, company.droitacceeId),
     };
   }

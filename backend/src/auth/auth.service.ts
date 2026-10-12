@@ -1,9 +1,11 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { AuthUser, canEditFromRights } from '../common/auth-user';
 import { verifyPassword } from '../common/password';
+import { SUBSCRIPTION_LOCKED, SubscriptionsService } from '../accounts/subscriptions.service';
+import { ActivityService } from '../accounts/activity.service';
 
 const INVALID = 'Adresse e-mail ou mot de passe incorrect';
 
@@ -12,6 +14,8 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private subscriptions: SubscriptionsService,
+    private activity: ActivityService,
   ) {}
 
   async loginCompany(dto: LoginDto) {
@@ -26,6 +30,17 @@ export class AuthService {
     }
 
     const ownerId = company.multicompte > 0 ? company.multicompte : company.id;
+    // Subscription ended or suspended by IGTS: no access until renewed (data is kept)
+    const subscription = this.subscriptions.info(ownerId);
+    if (subscription.locked) {
+      throw new ForbiddenException({ statusCode: 403, code: SUBSCRIPTION_LOCKED, message: subscription.message });
+    }
+    this.activity.log({
+      type: 'login',
+      actor: { kind: 'company', id: company.id, nom: company.nom },
+      companyId: ownerId,
+      label: `${company.nom} s’est connecté(e)${company.raisonsociale ? ` (${company.raisonsociale})` : ''}`,
+    });
     const user: AuthUser = {
       id: company.id,
       type: 'company',
@@ -55,6 +70,12 @@ export class AuthService {
       throw new UnauthorizedException('Ce compte est désactivé.');
     }
 
+    this.activity.log({
+      type: 'login',
+      actor: { kind: 'admin', id: admin.id, nom: admin.nomComplet || admin.username },
+      companyId: null,
+      label: `${admin.nomComplet || admin.username} (IGTS) s’est connecté(e)`,
+    });
     const user: AuthUser = {
       id: admin.id,
       type: 'admin',

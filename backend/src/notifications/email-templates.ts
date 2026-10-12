@@ -109,34 +109,3 @@ export function deadlinesEmail(p: {
   };
 }
 
-export function welcomeEmail(p: {
-  name: string;
-  inviter: string;
-  company: string;
-  email: string;
-  canEdit: boolean;
-  appUrl: string;
-}): EmailContent {
-  const subject = `Votre accès à la veille réglementaire de ${p.company}`;
-  const url = `${p.appUrl}/login`;
-  const rights = p.canEdit
-    ? 'Vous pouvez consulter les textes, les évaluer et suivre le plan d’action.'
-    : 'Votre accès est en lecture seule : vous pouvez consulter les textes, leurs évaluations et le plan d’action.';
-  return {
-    subject,
-    html: layout({
-      preheader: subject,
-      greeting: `Bonjour ${p.name},`,
-      intro: `${esc(p.inviter)} vous a créé un compte sur IGTS Veille pour <strong>${esc(p.company)}</strong>. ${esc(rights)}`,
-      items: [`Identifiant : ${p.email}`, `Mot de passe : communiqué par ${p.inviter}`],
-      cta: { label: 'Se connecter', url },
-      outro: 'Une visite guidée vous présente l’essentiel lors de votre première connexion.',
-    }),
-    text: textVersion([
-      `Bonjour ${p.name},`,
-      `${p.inviter} vous a créé un compte sur IGTS Veille pour ${p.company}. ${rights}`,
-      `Identifiant : ${p.email}\nMot de passe : communiqué par ${p.inviter}`,
-      `Se connecter : ${url}`,
-    ]),
-  };
-}

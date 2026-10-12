@@ -139,14 +139,6 @@ export class UpdateProfileDto {
   tel?: string;
 }
 
-export class ChangePasswordDto {
-  @IsString() @MinLength(1) @MaxLength(200)
-  current!: string;
-
-  @IsString() @MinLength(8, { message: 'Le nouveau mot de passe doit contenir au moins 8 caractères' }) @MaxLength(200)
-  next!: string;
-}
-
 export class PreferencesDto {
   @IsOptional() @IsBoolean()
   emailNewTexts?: boolean;
@@ -177,9 +169,7 @@ export class CreateTeamMemberDto {
   /** true = « Lecture et modification », false = « Lecture seule » */
   @IsBoolean()
   canEdit!: boolean;
-
-  @IsString() @MinLength(8, { message: 'Le mot de passe doit contenir au moins 8 caractères' }) @MaxLength(200)
-  password!: string;
+  // No password: IGTS sets it when activating the account
 }
 
 export class UpdateTeamMemberDto {
@@ -203,7 +193,3 @@ export class UpdateTeamMemberDto {
   active?: boolean;
 }
 
-export class ResetMemberPasswordDto {
-  @IsString() @MinLength(8, { message: 'Le mot de passe doit contenir au moins 8 caractères' }) @MaxLength(200)
-  password!: string;
-}

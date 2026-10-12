@@ -1,28 +1,27 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { DROIT_LECTURE, DROIT_TOUS } from '../common/auth-user';
 import type { AuthUser } from '../common/auth-user';
-import { hashPassword } from '../common/password';
-import { MailerService } from '../notifications/mailer.service';
-import { welcomeEmail } from '../notifications/email-templates';
 import { PrismaService } from '../prisma/prisma.service';
+import { AccountRequestsService } from '../accounts/account-requests.service';
 import { CompanyService } from './company.service';
-import { CreateTeamMemberDto, ResetMemberPasswordDto, UpdateTeamMemberDto } from './company.dto';
+import { CreateTeamMemberDto, UpdateTeamMemberDto } from './company.dto';
 
 const clean = (v?: string | null) => (v?.trim() ? v.trim() : null);
 
 /**
  * The company's main account manages its employees' accounts ("comptes
- * secondaires"): creation, access rights (Lecture seule / Lecture et
- * modification), activation and password reset. Accounts are stored exactly
- * as Symfony creates them (company row with `multicompte` = main account id),
- * so they also work on the legacy platform.
+ * secondaires"): it adds them, sets their access rights (Lecture seule /
+ * Lecture et modification) and can switch them off. Passwords are managed by
+ * IGTS only: a new account waits, switched off, until IGTS sets its password
+ * (AccountRequestsService). Accounts are stored exactly as Symfony creates
+ * them (company row with `multicompte` = main account id).
  */
 @Injectable()
 export class TeamService {
   constructor(
     private prisma: PrismaService,
     private company: CompanyService,
-    private mailer: MailerService,
+    private requests: AccountRequestsService,
   ) {}
 
   /** A secondary account of the caller's company (never the main account itself). */
@@ -46,44 +45,37 @@ export class TeamService {
     const email = dto.email.trim().toLowerCase();
     await this.assertEmailFree(email);
 
-    await this.prisma.company.create({
+    const created = await this.prisma.company.create({
       data: {
         nom: dto.nom.trim(),
         email,
         tel: clean(dto.tel),
         fonction: clean(dto.fonction),
-        password: await hashPassword(dto.password),
+        // Unusable until IGTS sets the real password and switches the account on
+        password: await AccountRequestsService.unusablePassword(),
         roles: JSON.stringify(['ROLE_COMPANY']),
         multicompte: owner.id,
         raisonsociale: owner.raisonsociale,
         tmpphoto: owner.tmpphoto,
         droit: 1,
         droitacceeId: dto.canEdit ? DROIT_TOUS : DROIT_LECTURE,
-        activated: true,
+        activated: false,
         enabled: true,
         deleted: false,
         createdAt: new Date(),
       },
     });
 
-    // The password is never e-mailed: the main account hands it over itself
-    void this.mailer.send({
-      to: [email],
-      ...welcomeEmail({
-        name: dto.nom.trim(),
-        inviter: user.nom,
-        company: owner.raisonsociale || owner.nom,
-        email,
-        canEdit: dto.canEdit,
-        appUrl: process.env.APP_URL ?? 'http://localhost:3000',
-      }),
-    });
-
+    // IGTS is told; the colleague is welcomed once IGTS has activated the account
+    await this.requests.request({ accountId: created.id, ownerId: owner.id, requestedBy: user.nom });
     return this.company.team(user);
   }
 
   async update(user: AuthUser, id: number, dto: UpdateTeamMemberDto) {
     await this.member(user, id);
+    if (dto.active && this.requests.isPending(id)) {
+      throw new BadRequestException('IGTS n’a pas encore activé ce compte : il le sera dès que son mot de passe sera défini.');
+    }
     const email = dto.email?.trim().toLowerCase();
     if (email) await this.assertEmailFree(email, id);
     await this.prisma.company.update({
@@ -100,14 +92,5 @@ export class TeamService {
     });
     // Rights and activation are re-read on every request: they apply at once
     return this.company.team(user);
-  }
-
-  async resetPassword(user: AuthUser, id: number, dto: ResetMemberPasswordDto) {
-    await this.member(user, id);
-    await this.prisma.company.update({
-      where: { id },
-      data: { password: await hashPassword(dto.password), updatedAt: new Date() },
-    });
-    return { ok: true };
   }
 }

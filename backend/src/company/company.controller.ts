@@ -23,14 +23,12 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CompanyService } from './company.service';
 import { TeamService } from './team.service';
 import {
-  ChangePasswordDto,
   CreateActionDto,
   CreateTeamMemberDto,
   EvaluateTextDto,
   ListActionsQuery,
   ListTextsQuery,
   PreferencesDto,
-  ResetMemberPasswordDto,
   UpdateActionDto,
   UpdateProfileDto,
   UpdateTeamMemberDto,
@@ -174,10 +172,11 @@ export class CompanyController {
     return this.service.updateProfile(user, dto);
   }
 
+  /** Kept for older clients: always refused, IGTS manages every password. */
   @Post('me/password')
   @HttpCode(200)
-  changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto) {
-    return this.service.changePassword(user, dto);
+  changePassword() {
+    return this.service.changePassword();
   }
 
   @Patch('me/preferences')
@@ -205,17 +204,6 @@ export class CompanyController {
     @Body() dto: UpdateTeamMemberDto,
   ) {
     return this.teamService.update(user, id, dto);
-  }
-
-  @UseGuards(MainAccountGuard)
-  @Post('team/:id/password')
-  @HttpCode(200)
-  resetMemberPassword(
-    @CurrentUser() user: AuthUser,
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: ResetMemberPasswordDto,
-  ) {
-    return this.teamService.resetPassword(user, id, dto);
   }
 
   // ─── Notifications ─────────────────────────────────────────────────

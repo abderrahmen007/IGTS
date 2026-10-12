@@ -14,6 +14,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { clampPage } from '../common/text-utils';
 import { computeStats } from '../company/company.service';
 import { DraftsStore } from '../scraper/drafts.store';
+import { SubscriptionsService } from '../accounts/subscriptions.service';
+import { AccountRequestsService } from '../accounts/account-requests.service';
 import {
   APPLICABILITE_NON_ANALYSEE,
   APPLICABLE,
@@ -56,6 +58,11 @@ export class AdminListQuery {
   @IsOptional()
   @IsIn(['1'])
   unassigned?: string;
+
+  /** Companies: by subscription ("a-relancer" = ending soon, ended or suspended) */
+  @IsOptional()
+  @IsIn(['a-relancer', 'bloques', 'sans-date'])
+  abonnement?: 'a-relancer' | 'bloques' | 'sans-date';
 }
 
 const TS_ACTIVE: Prisma.TexteSocieteWhereInput = {
@@ -80,6 +87,8 @@ export class AdminService {
   constructor(
     private prisma: PrismaService,
     private drafts: DraftsStore,
+    private subscriptions: SubscriptionsService,
+    private accountRequests: AccountRequestsService,
   ) {}
 
   private async statsByCompany(companyIds: number[]) {
@@ -281,9 +290,15 @@ export class AdminService {
    */
   private async igtsTodo() {
     const unassigned = await this.unassignedTextIds();
+    let subscriptions = 0;
+    for (const info of this.subscriptions.all().values()) {
+      if (info.status === 'expiring' || info.status === 'expired' || info.status === 'suspended') subscriptions++;
+    }
     return {
       unassignedTexts: unassigned.length,
       drafts: this.drafts.pendingCount(),
+      accountsToActivate: this.accountRequests.pending().length,
+      subscriptionsToFollow: subscriptions,
     };
   }
 
@@ -303,6 +318,21 @@ export class AdminService {
           }
         : {}),
     };
+
+    if (q.abonnement) {
+      const all = this.subscriptions.all();
+      const wanted =
+        q.abonnement === 'a-relancer'
+          ? ['expiring', 'expired', 'suspended']
+          : q.abonnement === 'bloques'
+            ? ['expired', 'suspended']
+            : null;
+      if (wanted) {
+        where.id = { in: [...all].filter(([, i]) => wanted.includes(i.status)).map(([id]) => id) };
+      } else {
+        where.id = { notIn: [...all.keys()] };
+      }
+    }
 
     const [total, rows] = await Promise.all([
       this.prisma.company.count({ where }),
@@ -341,6 +371,7 @@ export class AdminService {
         ...c,
         subAccounts: subsBy.get(c.id) ?? 0,
         stats: stats.get(c.id),
+        subscription: this.subscriptions.info(c.id),
       })),
       total,
       page,

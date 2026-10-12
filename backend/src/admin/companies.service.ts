@@ -1,7 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { hashPassword } from '../common/password';
 import { PrismaService } from '../prisma/prisma.service';
 import { AssignmentService } from './assignment.service';
+import { SubscriptionsService } from '../accounts/subscriptions.service';
+import { AccountRequestsService } from '../accounts/account-requests.service';
 import { CompanyService, computeStats } from '../company/company.service';
 import { canEditFromRights, DROIT_LECTURE, DROIT_TOUS } from '../common/auth-user';
 import type { AuthUser } from '../common/auth-user';
@@ -24,6 +26,8 @@ export class AdminCompaniesService {
     private prisma: PrismaService,
     private assignment: AssignmentService,
     private companyService: CompanyService,
+    private subscriptions: SubscriptionsService,
+    private accountRequests: AccountRequestsService,
   ) {}
 
   private async getMain(id: number) {
@@ -63,7 +67,9 @@ export class AdminCompaniesService {
       }),
     ]);
 
+    const pending = this.accountRequests.pendingIds();
     return {
+      subscription: { ...this.subscriptions.info(id), history: this.subscriptions.history(id) },
       company: {
         id: c.id,
         raisonsociale: c.raisonsociale,
@@ -88,6 +94,8 @@ export class AdminCompaniesService {
         ...s,
         active: s.activated,
         canEdit: canEditFromRights(1, droitacceeId),
+        /** Added by the company: waiting for IGTS to set its password */
+        pending: pending.has(s.id),
       })),
     };
   }
@@ -114,6 +122,8 @@ export class AdminCompaniesService {
         data: [...new Set(dto.secteurIds)].map((secteurId) => ({ companyId: company.id, secteurId })),
       });
     }
+    // A new client starts a one-year subscription today
+    await this.subscriptions.start(company.id, 'IGTS');
     return this.detail(company.id);
   }
 
@@ -155,6 +165,9 @@ export class AdminCompaniesService {
   async setActive(id: number, active: boolean) {
     const c = await this.prisma.company.findFirst({ where: { id, deleted: false } });
     if (!c) throw new NotFoundException('Compte introuvable');
+    if (active && this.accountRequests.isPending(id)) {
+      throw new BadRequestException('Ce compte attend son mot de passe : utilisez « Activer » pour le définir.');
+    }
     await this.prisma.company.update({ where: { id }, data: { activated: active } });
     return { ok: true, active };
   }
@@ -166,6 +179,10 @@ export class AdminCompaniesService {
       where: { OR: [{ id }, { multicompte: id }] },
       data: { deleted: true },
     });
+    for (const accountId of this.accountRequests.pendingIds()) {
+      const a = await this.prisma.company.findUnique({ where: { id: accountId }, select: { multicompte: true } });
+      if (a?.multicompte === id) await this.accountRequests.cancel(accountId);
+    }
     return { ok: true };
   }
 
@@ -321,6 +338,7 @@ export class AdminCompaniesService {
   async removeSubAccount(id: number) {
     const s = await this.getSub(id);
     await this.prisma.company.update({ where: { id }, data: { deleted: true } });
+    await this.accountRequests.cancel(id);
     return this.detail(s.multicompte);
   }
 }

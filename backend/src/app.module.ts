@@ -8,6 +8,8 @@ import { AdminModule } from './admin/admin.module';
 import { ChatbotModule } from './chatbot/chatbot.module';
 import { ScraperModule } from './scraper/scraper.module';
 import { VeilleStoreModule } from './scraper/veille-store.module';
+import { AccountsModule } from './accounts/accounts.module';
+import { FeedbackModule } from './feedback/feedback.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { FilesModule } from './files/files.module';
 import { PreferencesModule } from './preferences/preferences.module';
@@ -20,12 +22,14 @@ import { PreferencesModule } from './preferences/preferences.module';
     PreferencesModule,
     VeilleStoreModule,
     NotificationsModule,
+    AccountsModule,
     FilesModule,
     AuthModule,
     CompanyModule,
     AdminModule,
     ChatbotModule,
     ScraperModule,
+    FeedbackModule,
   ],
 })
 export class AppModule {}
