@@ -257,6 +257,28 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56'%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.09' stroke-width='1.2'%3E%3Crect x='17' y='17' width='22' height='22'/%3E%3Crect x='17' y='17' width='22' height='22' transform='rotate(45 28 28)'/%3E%3Ccircle cx='28' cy='28' r='4.5'/%3E%3Cpath d='M0 0l11 11M56 0L45 11M0 56l11-11M56 56L45 45'/%3E%3C/g%3E%3C/svg%3E");
 }
 
+/* Login page: the watch radar (components/login/radar-showcase.tsx) */
+.radar-sweep { animation: radar-spin 9s linear infinite; }
+.radar-orbit { animation: radar-spin var(--orbit-speed, 90s) linear infinite; }
+.radar-float { animation: radar-bob 5.5s ease-in-out infinite alternate; }
+.radar-hover { animation: radar-bob-lg 7s ease-in-out infinite alternate; }
+.radar-ring-fill { animation: radar-fill 1.6s cubic-bezier(0.165, 0.84, 0.44, 1) 0.3s both; }
+@keyframes radar-spin {
+  to { rotate: 360deg; }
+}
+@keyframes radar-bob {
+  from { translate: 0 0; }
+  to { translate: 0 -8px; }
+}
+@keyframes radar-bob-lg {
+  from { translate: 0 0; }
+  to { translate: 0 -10px; }
+}
+@keyframes radar-fill {
+  from { stroke-dashoffset: 301.6; }
+  to { stroke-dashoffset: 42; }
+}
+
 @keyframes fade {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -292,4 +314,5 @@
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+  .radar-sweep, .radar-orbit, .radar-float, .radar-hover, .radar-ring-fill { animation: none !important; }
 }

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { Button, Field, Input, cn } from "@/components/ui";
 import { Icon } from "@/components/icons";
-import { Spotlight } from "@/components/aceternity/spotlight";
+import { RadarShowcase } from "@/components/login/radar-showcase";
 import { api, ApiError } from "@/lib/api";
 import { getSession, saveSession, type AccountType, type SessionUser } from "@/lib/session";
 
@@ -52,58 +52,28 @@ export default function LoginPage() {
 
   return (
     <div className="relative isolate flex min-h-screen overflow-hidden bg-paper">
-      {/* Brand panel */}
-      <aside className="zellige relative hidden w-[44%] max-w-[620px] flex-col justify-between overflow-hidden bg-brand-800 p-12 text-white lg:flex">
-        <div
-          aria-hidden="true"
-          className="absolute -bottom-32 -right-24 h-[420px] w-[420px] rounded-full border-[70px] border-saffron-500 opacity-40 blur-[40px]"
-        />
-        <Spotlight className="-left-40 -top-56" />
-        <Image
-          src="/brand/igts-veille-white.png"
-          alt="IGTS Veille"
-          width={148}
-          height={103}
-          loading="eager"
-          className="relative"
-        />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute inset-0 bg-[radial-gradient(700px_520px_at_18%_78%,rgb(90_79_208/0.16),transparent_70%),radial-gradient(560px_460px_at_62%_12%,rgb(227_163_59/0.18),transparent_70%),radial-gradient(520px_520px_at_96%_96%,rgb(90_79_208/0.14),transparent_70%)]" />
+      </div>
 
-        <div className="relative max-w-md">
-          <h1 className="font-serif text-[34px] font-semibold leading-tight">
-            Veille réglementaire
+      <div className="mx-auto flex w-full max-w-[1480px] items-center gap-14 px-5 py-10 sm:px-10 xl:px-[72px]">
+        {/* The platform inside its watch radar */}
+        <section className="hidden h-[calc(100vh-80px)] min-h-[640px] min-w-0 flex-1 flex-col xl:flex">
+          <Image src="/brand/igts-veille.png" alt="IGTS Veille" width={120} height={83} loading="eager" />
+          <h1 className="mt-9 font-serif text-[46px] font-semibold leading-[1.06] tracking-[-0.01em] text-ink-900 2xl:text-[50px]">
+            Votre conformité,
             <br />
-            santé, sécurité, environnement.
+            <span className="text-brand-600">à jour chaque matin.</span>
           </h1>
-          <p className="mt-4 text-[15px] leading-relaxed text-brand-100">
-            Retrouvez les textes applicables à votre activité, évaluez votre conformité et suivez vos plans
-            d’action, au même endroit.
+          <p className="mt-5 max-w-[480px] text-[16px] leading-relaxed text-ink-600">
+            Les textes qui concernent votre activité arrivent classés et résumés. Vous les évaluez, suivez vos actions et vos échéances, au
+            même endroit.
           </p>
+          <RadarShowcase className="mt-6 flex-1" />
+        </section>
 
-          <dl className="mt-10 grid grid-cols-3 gap-6 border-t border-white/15 pt-6">
-            {[
-              ["Textes", "suivis et résumés"],
-              ["Conformité", "évaluée texte par texte"],
-              ["Actions", "suivies jusqu’à clôture"],
-            ].map(([k, v]) => (
-              <div key={k}>
-                <dt className="text-sm font-semibold">{k}</dt>
-                <dd className="mt-1 text-[13px] leading-snug text-brand-100/80">{v}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-
-        <p className="relative text-xs text-brand-100/70">
-          © {new Date().getFullYear()} IGTS — International Gold Training &amp; Services
-        </p>
-      </aside>
-
-      {/* Form */}
-      <main className="relative flex flex-1 items-center justify-center px-5 py-12 sm:px-10">
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-          <div className="absolute -right-40 -top-48 h-[560px] w-[560px] rounded-full border-[110px] border-brand-600 opacity-25 blur-[46px]" />
-          <div className="absolute -bottom-40 left-10 h-[420px] w-[420px] rounded-full bg-saffron-500 opacity-20 blur-[90px]" />
-        </div>
+        {/* Form */}
+        <main className="flex w-full justify-center xl:w-auto">
         <div className="glass w-full max-w-[420px] rounded-[26px] px-7 py-9 sm:px-9">
           <Image
             src="/brand/igts-veille.png"
@@ -111,7 +81,7 @@ export default function LoginPage() {
             width={112}
             height={78}
             loading="eager"
-            className="mb-10 lg:hidden"
+            className="mb-10 xl:hidden"
           />
 
           <h2 className="font-serif text-[30px] font-semibold text-ink-900">Connexion</h2>
@@ -204,7 +174,8 @@ export default function LoginPage() {
             Mot de passe oublié ou accès à créer ? Contactez votre conseiller IGTS.
           </p>
         </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
