@@ -226,7 +226,7 @@ export default function ProfilePage() {
             <div className="flex items-center gap-4">
               <span className="flex flex-1 flex-col">
                 <span className="text-sm font-semibold text-ink-900">Rappels d’échéance</span>
-                <span className="text-[12.5px] text-ink-600">7 jours et 1 jour avant chaque action, et en cas de retard</span>
+                <span className="text-[12.5px] text-ink-600">Échéances et plan d’action : 30 et 7 jours avant, le jour même, puis chaque semaine en cas de retard</span>
               </span>
               <Toggle
                 label="E-mails de rappel d’échéance"

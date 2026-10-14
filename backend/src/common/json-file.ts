@@ -80,6 +80,17 @@ export function addYears(day: string, n: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+/** YYYY-MM-DD + n months (31 January + 1 month → 28 or 29 February). */
+export function addMonths(day: string, n: number): string {
+  const [y, m, d] = day.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1 + n, 1));
+  const last = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  date.setUTCDate(Math.min(d, last));
+  return date.toISOString().slice(0, 10);
+}
+
 const MONTHS = [
   'janvier',
   'février',

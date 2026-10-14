@@ -8,7 +8,8 @@ export type ActivityType =
   | 'account'
   | 'feedback'
   | 'text-published'
-  | 'veille';
+  | 'veille'
+  | 'echeance';
 
 export interface ActivityEvent {
   at: string;

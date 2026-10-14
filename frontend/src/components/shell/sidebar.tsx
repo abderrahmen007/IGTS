@@ -14,7 +14,7 @@ import { ShinyText } from "../reactbits/shiny-text";
 import { useVeillePending } from "@/lib/veille-pending";
 import { useApi } from "@/lib/use-api";
 
-type BadgeKind = "toEvaluate" | "actions" | "drafts" | "accounts";
+type BadgeKind = "toEvaluate" | "actions" | "drafts" | "accounts" | "echeances";
 
 interface NavItem {
   href: string;
@@ -32,6 +32,7 @@ const NAV: Record<AccountType, { title?: string; items: NavItem[] }[]> = {
         { href: "/dashboard/evaluations", label: "À évaluer", icon: "inbox", badge: "toEvaluate" },
         { href: "/dashboard/my-texts", label: "Mes textes", icon: "file" },
         { href: "/dashboard/actions", label: "Plan d’action", icon: "listChecks", badge: "actions" },
+        { href: "/dashboard/echeances", label: "Échéances", icon: "calendar", badge: "echeances", isNew: true },
         { href: "/dashboard/team", label: "Mon équipe", icon: "users", isNew: true },
       ],
     },
@@ -45,6 +46,7 @@ const NAV: Record<AccountType, { title?: string; items: NavItem[] }[]> = {
         { href: "/dashboard/comptes", label: "Comptes à activer", icon: "userPlus", badge: "accounts" },
         { href: "/dashboard/texts", label: "Textes réglementaires", icon: "library" },
         { href: "/dashboard/veille", label: "Veille automatique", icon: "sparkle", badge: "drafts" },
+        { href: "/dashboard/echeances", label: "Échéances clients", icon: "calendar", isNew: true },
         { href: "/dashboard/enquetes", label: "Enquêtes de satisfaction", icon: "message", isNew: true },
       ],
     },
@@ -96,10 +98,39 @@ function AccountsBadge() {
   );
 }
 
+/** Company's overdue checks and renewals (or those due within 30 days). */
+function EcheancesBadge() {
+  const pathname = usePathname();
+  const { data, reload } = useApi<{ late: number; soon: number }>("/company/echeances/summary");
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    void reload();
+  }, [pathname, reload]);
+  if (!data || (!data.late && !data.soon)) return null;
+  const late = data.late > 0;
+  const n = late ? data.late : data.soon;
+  return (
+    <span
+      title={late ? `${n} échéance(s) en retard` : `${n} échéance(s) dans les 30 jours`}
+      className={cn(
+        "tabular flex h-[22px] min-w-[22px] items-center justify-center rounded-full px-1.5 text-xs font-bold",
+        late ? "bg-coral-300 text-[#5c1d05]" : "bg-saffron-500 text-ink-900",
+      )}
+    >
+      {n > 99 ? "99+" : n}
+    </span>
+  );
+}
+
 function NavBadge({ kind }: { kind: BadgeKind }) {
   const live = useLive();
   if (kind === "drafts") return <DraftsBadge />;
   if (kind === "accounts") return <AccountsBadge />;
+  if (kind === "echeances") return <EcheancesBadge />;
   const s = live?.stats;
   if (!s) return null;
   if (kind === "toEvaluate") {

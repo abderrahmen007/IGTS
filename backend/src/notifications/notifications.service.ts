@@ -1,13 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeService } from './realtime.service';
 import { MailerService } from './mailer.service';
-import { deadlinesEmail, newTextsEmail } from './email-templates';
+import { newTextsEmail } from './email-templates';
 import { PreferencesService } from '../preferences/preferences.service';
 import { SubscriptionsService } from '../accounts/subscriptions.service';
-import { LIVE_ACTIONS_TEXT, OPEN_ACTION_STATES, daysUntil } from '../company/rules';
 
 export interface NewTextNotification {
   companyId: number;
@@ -174,73 +172,4 @@ export class NotificationsService {
     this.realtime.publish(ownerId, { type: 'refresh' });
   }
 
-  // ─── Action plan reminders ─────────────────────────────────────────
-
-  /**
-   * Every morning at 7:45 (Tunis): reminds companies of open actions whose
-   * planned closing date is in 7 days, tomorrow, or was yesterday (late).
-   */
-  @Cron('0 45 7 * * *', { timeZone: 'Africa/Tunis' })
-  async remindActionDeadlines() {
-    // Only actions that still need work, on texts that still call for action
-    // (actions of a text marked "ne nous concerne pas" are on hold)
-    const ts = await this.prisma.texteSociete.findMany({
-      where: { ...LIVE_ACTIONS_TEXT, OR: [{ deleted: false }, { deleted: null }], texte: { deleted: false } },
-      select: { id: true, companyId: true, texte: { select: { titre: true } } },
-    });
-    const tsById = new Map(ts.map((t) => [t.id, t]));
-    const actions = await this.prisma.plusaction.findMany({
-      where: {
-        gestionactionId: { in: OPEN_ACTION_STATES },
-        cloture: { not: null },
-        texteSocieteId: { in: [...tsById.keys()] },
-      },
-      select: { id: true, texteId: true, texteSocieteId: true, cloture: true, libelleAction: true },
-    });
-
-    const due: { action: (typeof actions)[number]; days: number }[] = [];
-    for (const a of actions) {
-      const days = daysUntil(a.cloture);
-      if (days === 7 || days === 1 || days === -1) due.push({ action: a, days });
-    }
-    if (!due.length) return;
-
-    const byCompany = new Map<number, { label: string; when: string; tsId: number; texteId: number | null }[]>();
-    for (const { action, days } of due) {
-      const link = action.texteSocieteId ? tsById.get(action.texteSocieteId) : undefined;
-      if (!link?.companyId) continue;
-      const desc = (action.libelleAction ?? '').replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim();
-      const when = days === -1 ? 'en retard' : days === 1 ? 'échéance demain' : 'échéance dans 7 jours';
-      if (!byCompany.has(link.companyId)) byCompany.set(link.companyId, []);
-      byCompany.get(link.companyId)!.push({
-        label: `${desc.slice(0, 90) || 'Action'} (${link.texte?.titre ?? ''})`,
-        when,
-        tsId: link.id,
-        texteId: action.texteId,
-      });
-    }
-
-    const now = new Date();
-    for (const [ownerId, list] of byCompany) {
-      await this.prisma.notification.createMany({
-        data: list.map((l) => ({
-          companyId: ownerId,
-          texteId: l.texteId,
-          texteSocieteId: l.tsId,
-          message: l.when === 'en retard' ? 'Une action de votre plan d’action est en retard.' : `Action à clôturer : ${l.when}.`,
-          isRead: false,
-          etat: 'nonlu',
-          createdAt: now,
-        })),
-      });
-      this.realtime.publish(ownerId, {
-        type: 'notification',
-        unread: await this.unreadCount(ownerId),
-        item: { message: `${list.length} action(s) arrivent à échéance.`, createdAt: now.toISOString() },
-      });
-      const { emails, name } = await this.recipients(ownerId, 'emailReminders');
-      await this.mailer.send({ to: emails, ...deadlinesEmail({ name, items: list, appUrl: this.appUrl }) });
-    }
-    this.logger.log(`Rappels d’échéance envoyés à ${byCompany.size} entreprise(s)`);
-  }
 }

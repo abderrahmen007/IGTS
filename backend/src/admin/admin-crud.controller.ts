@@ -25,11 +25,11 @@ import { AdminCompaniesService } from './companies.service';
 import { AdminTextsService } from './texts.service';
 import { ReferenceService } from './reference.service';
 import { AdminUsersService } from './users.service';
-import { NotificationsService } from '../notifications/notifications.service';
 import { MailerService } from '../notifications/mailer.service';
 import { SubscriptionsService } from '../accounts/subscriptions.service';
 import { AccountRequestsService } from '../accounts/account-requests.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RemindersService } from '../echeances/reminders.service';
 import { newTextsEmail } from '../notifications/email-templates';
 import {
   AssignTextsDto,
@@ -64,11 +64,11 @@ export class AdminCrudController {
     private texts: AdminTextsService,
     private reference: ReferenceService,
     private users: AdminUsersService,
-    private notifications: NotificationsService,
     private mailer: MailerService,
     private subs: SubscriptionsService,
     private accountRequests: AccountRequestsService,
     private prisma: PrismaService,
+    private reminders: RemindersService,
   ) {}
 
   // ─── Companies ─────────────────────────────────────────────────────
@@ -289,12 +289,11 @@ export class AdminCrudController {
 
   // ─── Notifications ─────────────────────────────────────────────────
 
-  /** Runs the daily action-deadline reminders now (useful to test e-mails). */
+  /** Runs the daily reminders now (échéances and action plan; useful to test e-mails). */
   @Post('notifications/run-reminders')
   @HttpCode(200)
   async runReminders() {
-    await this.notifications.remindActionDeadlines();
-    return { ok: true };
+    return { ok: true, ...(await this.reminders.run()) };
   }
 
   /** Sends a sample e-mail to the logged-in admin to check the SMTP settings. */

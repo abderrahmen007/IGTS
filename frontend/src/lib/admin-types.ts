@@ -203,7 +203,7 @@ export interface DraftPublishResult {
 
 export interface ActivityEvent {
   at: string;
-  type: "login" | "subscription" | "account" | "feedback" | "text-published" | "veille";
+  type: "login" | "subscription" | "account" | "feedback" | "text-published" | "veille" | "echeance";
   actor: { kind: "admin" | "company" | "system"; id: number | null; nom: string };
   companyId: number | null;
   label: string;

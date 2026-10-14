@@ -10,9 +10,10 @@ import { ReferenceService } from './reference.service';
 import { AdminUsersService } from './users.service';
 import { AdminStatsService } from './stats.service';
 import { FeedbackModule } from '../feedback/feedback.module';
+import { EcheancesModule } from '../echeances/echeances.module';
 
 @Module({
-  imports: [CompanyModule, FeedbackModule],
+  imports: [CompanyModule, FeedbackModule, EcheancesModule],
   controllers: [AdminController, AdminCrudController],
   providers: [
     AdminService,

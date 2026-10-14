@@ -16,7 +16,7 @@ import { SmoothScroll } from "@/components/smooth-scroll";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getSession, type SessionUser } from "@/lib/session";
 
-const ADMIN_ONLY = ["/dashboard/companies", "/dashboard/texts", "/dashboard/referentiel", "/dashboard/admins", "/dashboard/veille", "/dashboard/comptes", "/dashboard/statistiques", "/dashboard/enquetes"];
+const ADMIN_ONLY = ["/dashboard/companies", "/dashboard/texts", "/dashboard/referentiel", "/dashboard/admins", "/dashboard/veille", "/dashboard/comptes", "/dashboard/statistiques", "/dashboard/enquetes", "/dashboard/echeances/catalogue"];
 const COMPANY_ONLY = [
   "/dashboard/my-texts",
   "/dashboard/evaluations",

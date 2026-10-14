@@ -81,11 +81,19 @@ function Notifications() {
                     </div>
                   </div>
                 );
+                // Reminders without a text open the page they are about
+                const href = n.texteSocieteId
+                  ? `/dashboard/my-texts/${n.texteSocieteId}`
+                  : n.message?.startsWith("Échéances")
+                    ? "/dashboard/echeances"
+                    : n.message?.startsWith("Plan d’action")
+                      ? "/dashboard/actions"
+                      : null;
                 return (
                   <li key={n.id}>
-                    {n.texteSocieteId ? (
+                    {href ? (
                       <Link
-                        href={`/dashboard/my-texts/${n.texteSocieteId}`}
+                        href={href}
                         onClick={() => {
                           if (!n.read) void live?.markItemRead(n.id);
                           close();

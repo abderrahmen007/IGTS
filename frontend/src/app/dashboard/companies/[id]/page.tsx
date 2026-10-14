@@ -5,6 +5,7 @@ import { Suspense, useState, type FormEvent } from "react";
 import { Badge, Button, Card, ErrorState, PageHeader, Skeleton } from "@/components/ui";
 import { Modal, useConfirm, useToast } from "@/components/overlay";
 import { Tabs } from "@/components/tabs";
+import { EcheancesBoard } from "@/components/echeances/echeances-board";
 import { Stat } from "@/components/stat";
 import { CompanyFields, FormError } from "@/components/admin/fields";
 import { CompanySubscriptions } from "@/components/admin/company-subscriptions";
@@ -18,7 +19,7 @@ import { useUrlState } from "@/lib/use-url-state";
 import { formatDate, formatNumber, formatPercent, plural } from "@/lib/format";
 import type { CompanyDetail, CompanyForm } from "@/lib/admin-types";
 
-type Tab = "abonnements" | "textes" | "utilisateurs" | "infos";
+type Tab = "abonnements" | "textes" | "utilisateurs" | "echeances" | "infos";
 
 function EditCompanyModal({
   detail,
@@ -237,6 +238,7 @@ function CompanyView() {
             { value: "abonnements", label: "Secteurs et thèmes" },
             { value: "textes", label: "Textes de la veille", count: s.total },
             { value: "utilisateurs", label: "Utilisateurs", count: data.subAccounts.length + 1 },
+            { value: "echeances", label: "Échéances" },
             { value: "infos", label: "Coordonnées" },
           ]}
         />
@@ -246,6 +248,7 @@ function CompanyView() {
         {tab === "abonnements" && <CompanySubscriptions detail={data} onChange={setData} />}
         {tab === "textes" && <CompanyTexts companyId={c.id} />}
         {tab === "utilisateurs" && <CompanyUsers detail={data} onChange={setData} />}
+        {tab === "echeances" && <EcheancesBoard mode="admin-company" companyId={c.id} canEdit />}
         {tab === "infos" && (
           <Card className="px-5 py-5">
             <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">

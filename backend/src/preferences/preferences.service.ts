@@ -7,7 +7,7 @@ import { dirname, resolve } from 'path';
 export interface UserPreferences {
   /** E-mail when new texts arrive in the watch list */
   emailNewTexts: boolean;
-  /** E-mail reminders 7 days / 1 day before an action deadline, and when late */
+  /** E-mail reminders (échéances and action plan): 30 and 7 days before, on the day, then weekly while late */
   emailReminders: boolean;
   /** When the guided tour was finished or skipped (null = show it on next visit) */
   tourSeenAt: string | null;

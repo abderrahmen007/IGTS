@@ -86,26 +86,3 @@ export function newTextsEmail(p: { name: string; titles: string[]; appUrl: strin
   };
 }
 
-export function deadlinesEmail(p: {
-  name: string;
-  items: { label: string; when: string }[];
-  appUrl: string;
-}): EmailContent {
-  const late = p.items.filter((i) => i.when === 'en retard').length;
-  const subject = late ? `${late} action(s) en retard dans votre plan d’action` : 'Rappel : actions à clôturer prochainement';
-  const url = `${p.appUrl}/dashboard/actions`;
-  const lines = p.items.map((i) => `${i.label} — ${i.when}`);
-  return {
-    subject,
-    html: layout({
-      preheader: subject,
-      greeting: `Bonjour ${p.name},`,
-      intro: 'Voici les actions de votre plan d’action qui arrivent à échéance ou qui sont en retard :',
-      items: lines,
-      cta: { label: 'Voir mes actions', url },
-      outro: 'Pensez à mettre à jour le statut et l’effectivité de chaque action une fois réalisée.',
-    }),
-    text: textVersion([`Bonjour ${p.name},`, subject, lines.map((l) => `• ${l}`).join('\n'), `Voir : ${url}`]),
-  };
-}
-

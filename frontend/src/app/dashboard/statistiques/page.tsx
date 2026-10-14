@@ -202,6 +202,7 @@ const EVENT_ICON: Record<ActivityEvent["type"], IconName> = {
   feedback: "message",
   "text-published": "file",
   veille: "sparkle",
+  echeance: "clock",
 };
 const FEED_FILTERS: { key: "all" | ActivityEvent["type"]; label: string }[] = [
   { key: "all", label: "Tout" },
@@ -209,6 +210,7 @@ const FEED_FILTERS: { key: "all" | ActivityEvent["type"]; label: string }[] = [
   { key: "subscription", label: "Abonnements" },
   { key: "account", label: "Comptes" },
   { key: "text-published", label: "Textes" },
+  { key: "echeance", label: "Échéances" },
   { key: "feedback", label: "Enquêtes" },
 ];
 
