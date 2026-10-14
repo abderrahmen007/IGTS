@@ -5,15 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { Button, Field, Input, cn } from "@/components/ui";
 import { Icon } from "@/components/icons";
-import { motion, useReducedMotion } from "motion/react";
-import { AnimatedContent } from "@/components/reactbits/animated-content";
-import { BlurText } from "@/components/reactbits/blur-text";
-import { Prism } from "@/components/reactbits/prism";
-import { RotatingText } from "@/components/reactbits/rotating-text";
-import { spotlight } from "@/components/reactbits/spotlight-card";
-import { StarBorder } from "@/components/reactbits/star-border";
-import { ProductPreview } from "@/components/login/product-preview";
-import { useMediaQuery } from "@/lib/use-media-query";
+import { Spotlight } from "@/components/aceternity/spotlight";
 import { api, ApiError } from "@/lib/api";
 import { getSession, saveSession, type AccountType, type SessionUser } from "@/lib/session";
 
@@ -26,9 +18,6 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const reduce = useReducedMotion();
-  // Short screens: a smaller prism, higher up, and two notifications
-  const short = useMediaQuery("(max-height: 820px)");
 
   useEffect(() => {
     if (getSession()) router.replace("/dashboard");
@@ -62,41 +51,60 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative isolate flex min-h-screen overflow-hidden bg-[#fbfaf7]">
-      {/* The whole page sits on the blurred prism of light */}
-      <Prism className="fixed inset-0 -z-10 h-screen w-screen" />
+    <div className="relative isolate flex min-h-screen overflow-hidden bg-paper">
+      {/* Brand panel */}
+      <aside className="zellige relative hidden w-[44%] max-w-[620px] flex-col justify-between overflow-hidden bg-brand-800 p-12 text-white lg:flex">
+        <div
+          aria-hidden="true"
+          className="absolute -bottom-32 -right-24 h-[420px] w-[420px] rounded-full border-[70px] border-saffron-500 opacity-40 blur-[40px]"
+        />
+        <Spotlight className="-left-40 -top-56" />
+        <Image
+          src="/brand/igts-veille-white.png"
+          alt="IGTS Veille"
+          width={148}
+          height={103}
+          loading="eager"
+          className="relative"
+        />
 
-      <div className="mx-auto flex w-full max-w-[1240px] flex-1 items-center gap-16 px-5 py-10 sm:px-10 lg:px-14">
-        {/* Brand */}
-        <section className="hidden min-w-0 flex-1 flex-col lg:flex">
-          <Image src="/brand/igts-veille.png" alt="IGTS Veille" width={132} height={92} loading="eager" />
-          <h1 className={cn("font-serif font-semibold leading-[1.1] text-ink-900", short ? "mt-8 text-[40px]" : "mt-14 text-[46px]")}>
-            <BlurText text="Veille réglementaire" />
+        <div className="relative max-w-md">
+          <h1 className="font-serif text-[34px] font-semibold leading-tight">
+            Veille réglementaire
             <br />
-            <RotatingText
-              words={["santé et sécurité", "environnement", "qualité", "énergie"]}
-              className="mt-2 rounded-xl bg-saffron-500 px-3 pb-1 text-[#2b1700]"
-            />
+            santé, sécurité, environnement.
           </h1>
-          <AnimatedContent delay={0.35} distance={10}>
-            <p className="mt-5 max-w-[460px] text-[16px] leading-relaxed text-ink-700">
-              Les textes applicables à votre activité, votre conformité et vos plans d’action, au même endroit.
-            </p>
-          </AnimatedContent>
-          <ProductPreview className={cn("max-w-[440px]", short ? "mt-6" : "mt-9")} count={short ? 2 : 3} />
-          <p className="mt-10 text-xs text-ink-500">© {new Date().getFullYear()} IGTS — International Gold Training &amp; Services</p>
-        </section>
+          <p className="mt-4 text-[15px] leading-relaxed text-brand-100">
+            Retrouvez les textes applicables à votre activité, évaluez votre conformité et suivez vos plans
+            d’action, au même endroit.
+          </p>
 
-        {/* Form */}
-        <main className="flex w-full justify-center lg:w-auto">
-        <motion.div
-          className="w-full max-w-[420px]"
-          initial={reduce ? false : { opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.55, delay: 0.1, ease: [0.165, 0.84, 0.44, 1] }}
-        >
-        <StarBorder className="rounded-[26px]">
-        <div className="glass spotlight w-full rounded-[26px] px-7 py-9 sm:px-9" {...spotlight("rgb(130 121 223 / 0.14)")}>
+          <dl className="mt-10 grid grid-cols-3 gap-6 border-t border-white/15 pt-6">
+            {[
+              ["Textes", "suivis et résumés"],
+              ["Conformité", "évaluée texte par texte"],
+              ["Actions", "suivies jusqu’à clôture"],
+            ].map(([k, v]) => (
+              <div key={k}>
+                <dt className="text-sm font-semibold">{k}</dt>
+                <dd className="mt-1 text-[13px] leading-snug text-brand-100/80">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <p className="relative text-xs text-brand-100/70">
+          © {new Date().getFullYear()} IGTS — International Gold Training &amp; Services
+        </p>
+      </aside>
+
+      {/* Form */}
+      <main className="relative flex flex-1 items-center justify-center px-5 py-12 sm:px-10">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute -right-40 -top-48 h-[560px] w-[560px] rounded-full border-[110px] border-brand-600 opacity-25 blur-[46px]" />
+          <div className="absolute -bottom-40 left-10 h-[420px] w-[420px] rounded-full bg-saffron-500 opacity-20 blur-[90px]" />
+        </div>
+        <div className="glass w-full max-w-[420px] rounded-[26px] px-7 py-9 sm:px-9">
           <Image
             src="/brand/igts-veille.png"
             alt="IGTS Veille"
@@ -108,10 +116,6 @@ export default function LoginPage() {
 
           <h2 className="font-serif text-[30px] font-semibold text-ink-900">Connexion</h2>
           <p className="mt-1.5 text-sm text-ink-600">Accédez à votre espace de veille.</p>
-          <p className="mt-3 flex items-center gap-2 text-[13px] text-ink-600 lg:hidden">
-            Veille
-            <RotatingText words={["santé et sécurité", "environnement", "qualité", "énergie"]} className="rounded-lg bg-saffron-100 px-2 font-semibold text-saffron-700" />
-          </p>
 
           <div
             role="tablist"
@@ -200,10 +204,7 @@ export default function LoginPage() {
             Mot de passe oublié ou accès à créer ? Contactez votre conseiller IGTS.
           </p>
         </div>
-        </StarBorder>
-        </motion.div>
-        </main>
-      </div>
+      </main>
     </div>
   );
 }
