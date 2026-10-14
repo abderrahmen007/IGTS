@@ -10,13 +10,18 @@ import { Cron, SchedulerRegistry } from '@nestjs/schedule';
 import { DraftsStore, type Draft, type RunRecord } from './drafts.store';
 import { DraftsService, normalizeTitle } from './drafts.service';
 import { IortError, IortSource, type JortIssue } from './iort.source';
-import { JortAnalyzerService } from './jort-analyzer.service';
+import {
+  AiUnavailableError,
+  JortAnalyzerService,
+} from './jort-analyzer.service';
 import { extractPages, isPdf, pageCount } from './pdf-pages';
 import { PrismaService } from '../prisma/prisma.service';
 
 export const SCHEDULE = '30 8 * * *';
 export const TIME_ZONE = 'Africa/Tunis';
 const JOB = 'veille-jort';
+/** Second try of a failed automatic collection */
+const RETRY_DELAY = 20 * 60_000;
 
 const MONTHS = [
   'janvier',
@@ -88,6 +93,8 @@ export class ScraperService implements OnApplicationBootstrap {
   private readonly enabled: boolean;
   private readonly firstRunIssues: number;
   private current: RunRecord | null = null;
+  /** Day (Tunis) of the last automatic retry, so a failure is retried once */
+  private retriedOn: string | null = null;
 
   constructor(
     private store: DraftsStore,
@@ -299,13 +306,26 @@ export class ScraperService implements OnApplicationBootstrap {
       await this.drafts.notifyNewDrafts(created, read, ignored.join(' ; '));
     } catch (e) {
       const message =
-        e instanceof IortError
+        e instanceof IortError || e instanceof AiUnavailableError
           ? e.message
           : `Erreur inattendue : ${(e as Error).message}`;
       this.logger.error(message);
+      // An automatic collection that fails gets one more try 20 minutes later;
+      // the administrators are only e-mailed if that one fails too.
+      const retry =
+        run.trigger !== 'manual' && this.retriedOn !== tunisNow().day;
+      if (retry) {
+        this.retriedOn = tunisNow().day;
+        run.steps.push('Nouvel essai automatique dans 20 minutes.');
+        setTimeout(
+          () => void this.start('catch-up').catch(() => undefined),
+          RETRY_DELAY,
+        ).unref();
+      }
       await this.finish(run, 'error', message);
       if (created.length) await this.drafts.notifyNewDrafts(created, read, '');
-      if (run.trigger !== 'manual') await this.drafts.notifyFailure(message);
+      if (run.trigger !== 'manual' && !retry)
+        await this.drafts.notifyFailure(message);
     }
   }
 
@@ -336,7 +356,10 @@ export class ScraperService implements OnApplicationBootstrap {
     );
     await this.store.saveRun(run);
 
-    const analysis = await this.analyzer.analyze(pdf, pages);
+    const analysis = await this.analyzer.analyze(pdf, pages, (step) => {
+      run.steps.push(step);
+      void this.store.saveRun(run);
+    });
     const numero =
       source.numero ??
       (analysis.issueNumber

@@ -167,6 +167,21 @@ RÈGLES
 - Réponds uniquement avec le JSON demandé.`;
 }
 
+/** Gemini could not be reached even after the retries (network, overload). */
+export class AiUnavailableError extends Error {}
+
+/** A network cut, a timeout or an overloaded service: worth another try. */
+export function isTransientAiError(e: unknown): boolean {
+  const { status, message } = (e ?? {}) as {
+    status?: number;
+    message?: string;
+  };
+  if (status && [429, 500, 502, 503, 504].includes(status)) return true;
+  return /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket hang up|network|overloaded|UNAVAILABLE|\[(429|500|502|503|504) /i.test(
+    message ?? '',
+  );
+}
+
 const clamp01 = (n: number) =>
   Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0;
 const clean = (s: unknown) =>
@@ -183,6 +198,8 @@ export class JortAnalyzerService {
   private readonly logger = new Logger(JortAnalyzerService.name);
   private readonly apiKey: string | null;
   readonly model: string;
+  /** Waits before the 2nd and 3rd attempts (the issue is then read again tomorrow) */
+  retryWaits = [20_000, 60_000];
 
   constructor(
     private prisma: PrismaService,
@@ -215,7 +232,11 @@ export class JortAnalyzerService {
     return { secteurs, types };
   }
 
-  async analyze(pdf: Buffer, pageTotal: number | null): Promise<IssueAnalysis> {
+  async analyze(
+    pdf: Buffer,
+    pageTotal: number | null,
+    onRetry?: (step: string) => void,
+  ): Promise<IssueAnalysis> {
     if (!this.apiKey)
       throw new Error(
         'Analyse IA indisponible : GEMINI_API_KEY n’est pas configurée.',
@@ -237,11 +258,44 @@ export class JortAnalyzerService {
 
     const { part, cleanup } = await this.pdfPart(pdf);
     try {
-      const result = await model.generateContent([part, { text: prompt(ref) }]);
+      const result = await this.withRetry(
+        () => model.generateContent([part, { text: prompt(ref) }]),
+        onRetry,
+      );
       const raw = JSON.parse(result.response.text()) as Record<string, unknown>;
       return this.validate(raw, ref, pageTotal);
     } finally {
       await cleanup();
+    }
+  }
+
+  /**
+   * Calls Gemini again after a short wait when the connection drops or the
+   * service is overloaded (a reading of 14/10 failed once with « fetch failed »
+   * and worked a few minutes later).
+   */
+  async withRetry<T>(
+    call: () => Promise<T>,
+    onRetry?: (step: string) => void,
+  ): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await call();
+      } catch (e) {
+        if (!isTransientAiError(e)) throw e;
+        const detail = (e as Error).message;
+        if (attempt >= this.retryWaits.length) {
+          this.logger.error(`Gemini injoignable : ${detail}`);
+          throw new AiUnavailableError(
+            `L’IA (Gemini) n’a pas répondu après ${attempt + 1} essais : connexion coupée ou service saturé.`,
+          );
+        }
+        const wait = this.retryWaits[attempt];
+        const step = `L’IA ne répond pas (connexion coupée ou service saturé) : nouvel essai dans ${Math.round(wait / 1000)} s`;
+        this.logger.warn(`${step} — ${detail}`);
+        onRetry?.(step);
+        await new Promise((r) => setTimeout(r, wait));
+      }
     }
   }
 
@@ -373,13 +427,19 @@ export class JortAnalyzerService {
  * for companies. Returns the reason, or null when the text may be kept.
  */
 const EXCLUDED_SCOPES: [RegExp, string][] = [
-  [/homologation[^.]*\b(dipl[ôo]mes?|certificats?)\b/i, 'homologation de diplômes'],
+  [
+    /homologation[^.]*\b(dipl[ôo]mes?|certificats?)\b/i,
+    'homologation de diplômes',
+  ],
   [/\bportant nominations?\b/i, 'nomination'],
   [/\bd[ée]l[ée]gation de signature\b/i, 'délégation de signature'],
   [/\bcessation de fonctions?\b/i, 'cessation de fonctions'],
   [/\bchangement (de |du )?(nom|pr[ée]nom)s?\b/i, 'changement de nom'],
   [/\bexpropriation\b/i, 'expropriation'],
-  [/\bconcours (interne|externe|sur dossiers?|sur [ée]preuves)\b/i, 'concours de recrutement'],
+  [
+    /\bconcours (interne|externe|sur dossiers?|sur [ée]preuves)\b/i,
+    'concours de recrutement',
+  ],
 ];
 
 export function excludedScope(titre: string): string | null {

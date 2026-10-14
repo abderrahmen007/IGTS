@@ -1,7 +1,12 @@
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { IortSource } from './iort.source';
-import { JortAnalyzerService, excludedScope } from './jort-analyzer.service';
+import {
+  AiUnavailableError,
+  JortAnalyzerService,
+  excludedScope,
+  isTransientAiError,
+} from './jort-analyzer.service';
 import { DraftsService, normalizeTitle } from './drafts.service';
 import { frenchDate } from './scraper.service';
 
@@ -254,12 +259,21 @@ describe('veille automatique — portée individuelle ou locale', () => {
   });
 
   it('compte les textes écartés après lecture avec ceux de l’IA', () => {
-    const analyzer = new JortAnalyzerService({} as never, new ConfigService({}));
+    const analyzer = new JortAnalyzerService(
+      {} as never,
+      new ConfigService({}),
+    );
     const res = analyzer.validate(
       {
         texts: [
-          { titre: 'Arrêté portant homologation de diplômes de formation professionnelle' },
-          { titre: 'Loi relative à la santé et à la sécurité au travail', confidence: 0.9 },
+          {
+            titre:
+              'Arrêté portant homologation de diplômes de formation professionnelle',
+          },
+          {
+            titre: 'Loi relative à la santé et à la sécurité au travail',
+            confidence: 0.9,
+          },
         ],
         ignoredCount: 10,
         ignoredSummary: '10 nominations',
@@ -272,5 +286,70 @@ describe('veille automatique — portée individuelle ou locale', () => {
     ]);
     expect(res.ignoredCount).toBe(11);
     expect(res.ignoredSummary).toContain('homologation de diplômes');
+  });
+});
+
+describe('veille automatique — IA momentanément injoignable', () => {
+  const make = () => {
+    const a = new JortAnalyzerService({} as never, new ConfigService({}));
+    a.retryWaits = [0, 0];
+    return a;
+  };
+  const cut = () =>
+    new Error(
+      '[GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: fetch failed',
+    );
+
+  it('reconnaît une coupure réseau ou un service saturé', () => {
+    expect(isTransientAiError(cut())).toBe(true);
+    expect(isTransientAiError({ status: 503, message: 'x' })).toBe(true);
+    expect(isTransientAiError({ status: 400, message: 'Bad request' })).toBe(
+      false,
+    );
+    expect(isTransientAiError(new SyntaxError('Unexpected token'))).toBe(false);
+  });
+
+  it('réessaie après une coupure et rend la réponse', async () => {
+    const steps: string[] = [];
+    let calls = 0;
+    const out = await make().withRetry(
+      () => (++calls < 3 ? Promise.reject(cut()) : Promise.resolve('ok')),
+      (s) => steps.push(s),
+    );
+    expect(out).toBe('ok');
+    expect(calls).toBe(3);
+    expect(steps.length).toBe(2);
+    expect(steps[0]).toContain('nouvel essai');
+  });
+
+  it('abandonne après 3 essais avec un message clair', async () => {
+    let calls = 0;
+    let error: unknown = null;
+    try {
+      await make().withRetry(() => {
+        calls++;
+        return Promise.reject(cut());
+      });
+    } catch (e) {
+      error = e;
+    }
+    expect(calls).toBe(3);
+    expect(error instanceof AiUnavailableError).toBe(true);
+    expect((error as Error).message).toContain('3 essais');
+  });
+
+  it('ne réessaie pas une erreur qui ne vient pas du réseau', async () => {
+    let calls = 0;
+    let error: unknown = null;
+    try {
+      await make().withRetry(() => {
+        calls++;
+        return Promise.reject(new SyntaxError('Unexpected token'));
+      });
+    } catch (e) {
+      error = e;
+    }
+    expect(calls).toBe(1);
+    expect(error instanceof SyntaxError).toBe(true);
   });
 });
