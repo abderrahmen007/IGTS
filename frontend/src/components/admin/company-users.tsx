@@ -16,17 +16,24 @@ interface UserForm {
   canEdit: boolean;
 }
 
-/** Password reset for any client account (main or sub-account). */
+/**
+ * Password of any client account (main or sub-account): passwords are managed
+ * by IGTS only. With `activate`, also switches on an account a company added.
+ */
 export function PasswordModal({
   accountId,
   name,
   open,
   onClose,
+  activate,
+  onDone,
 }: {
   accountId: number;
   name: string;
   open: boolean;
   onClose: () => void;
+  activate?: boolean;
+  onDone?: () => void;
 }) {
   const toast = useToast();
   const [password, setPassword] = useState("");
@@ -38,9 +45,15 @@ export function PasswordModal({
     setSaving(true);
     setError(null);
     try {
-      await api(`/admin/accounts/${accountId}/password`, { method: "PATCH", body: { password } });
-      toast(`Mot de passe de ${name} modifié.`);
+      if (activate) {
+        await api(`/admin/accounts/${accountId}/activate`, { method: "POST", body: { password } });
+        toast(`Compte de ${name} activé. Il a reçu un e-mail ; transmettez-lui son mot de passe.`);
+      } else {
+        await api(`/admin/accounts/${accountId}/password`, { method: "PATCH", body: { password } });
+        toast(`Mot de passe de ${name} modifié.`);
+      }
       setPassword("");
+      onDone?.();
       onClose();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Modification impossible.");
@@ -54,15 +67,15 @@ export function PasswordModal({
       open={open}
       onClose={onClose}
       size="sm"
-      title="Nouveau mot de passe"
-      description={name}
+      title={activate ? "Activer le compte" : "Nouveau mot de passe"}
+      description={activate ? `${name} — ajouté par l’entreprise. Définissez son mot de passe pour ouvrir l’accès.` : name}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
             Annuler
           </Button>
           <Button type="submit" form="pwd-form" loading={saving}>
-            Enregistrer
+            {activate ? "Définir et activer" : "Enregistrer"}
           </Button>
         </>
       }
@@ -170,7 +183,7 @@ export function CompanyUsers({ detail, onChange }: { detail: CompanyDetail; onCh
   const toast = useToast();
   const confirm = useConfirm();
   const [editing, setEditing] = useState<SubAccount | "new" | null>(null);
-  const [pwdFor, setPwdFor] = useState<{ id: number; name: string } | null>(null);
+  const [pwdFor, setPwdFor] = useState<{ id: number; name: string; activate?: boolean } | null>(null);
   const c = detail.company;
 
   const toggle = async (u: SubAccount) => {
@@ -261,7 +274,11 @@ export function CompanyUsers({ detail, onChange }: { detail: CompanyDetail; onCh
                 </td>
                 <td className={td}>
                   <span className="flex flex-wrap gap-1.5">
-                    <Badge tone={u.active ? "ok" : "neutral"}>{u.active ? "Actif" : "Désactivé"}</Badge>
+                    {u.pending ? (
+                      <Badge tone="warn">À activer</Badge>
+                    ) : (
+                      <Badge tone={u.active ? "ok" : "neutral"}>{u.active ? "Actif" : "Désactivé"}</Badge>
+                    )}
                     <Badge tone={u.canEdit ? "brand" : "neutral"}>{u.canEdit ? "Lecture et modification" : "Lecture seule"}</Badge>
                   </span>
                 </td>
@@ -269,12 +286,20 @@ export function CompanyUsers({ detail, onChange }: { detail: CompanyDetail; onCh
                   <Button variant="ghost" size="sm" onClick={() => setEditing(u)}>
                     Modifier
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setPwdFor({ id: u.id, name: u.nom })}>
-                    Mot de passe
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => toggle(u)}>
-                    {u.active ? "Désactiver" : "Activer"}
-                  </Button>
+                  {u.pending ? (
+                    <Button size="sm" onClick={() => setPwdFor({ id: u.id, name: u.nom, activate: true })}>
+                      Activer
+                    </Button>
+                  ) : (
+                    <>
+                      <Button variant="ghost" size="sm" onClick={() => setPwdFor({ id: u.id, name: u.nom })}>
+                        Mot de passe
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => toggle(u)}>
+                        {u.active ? "Désactiver" : "Activer"}
+                      </Button>
+                    </>
+                  )}
                   <Button variant="ghost" size="sm" onClick={() => remove(u)} className="text-bad-700 hover:bg-bad-50">
                     Supprimer
                   </Button>
@@ -301,7 +326,24 @@ export function CompanyUsers({ detail, onChange }: { detail: CompanyDetail; onCh
           }}
         />
       )}
-      {pwdFor && <PasswordModal accountId={pwdFor.id} name={pwdFor.name} open onClose={() => setPwdFor(null)} />}
+      {pwdFor && (
+        <PasswordModal
+          accountId={pwdFor.id}
+          name={pwdFor.name}
+          activate={pwdFor.activate}
+          open
+          onClose={() => setPwdFor(null)}
+          onDone={
+            pwdFor.activate
+              ? () =>
+                  onChange({
+                    ...detail,
+                    subAccounts: detail.subAccounts.map((s) => (s.id === pwdFor.id ? { ...s, pending: false, active: true } : s)),
+                  })
+              : undefined
+          }
+        />
+      )}
     </Card>
   );
 }

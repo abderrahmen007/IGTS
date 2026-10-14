@@ -196,6 +196,17 @@ export interface Preferences {
   notificationsReadUpTo?: number | null;
 }
 
+/** Yearly subscription to IGTS's watch (renewed by IGTS once paid). */
+export interface SubscriptionInfo {
+  status: "none" | "active" | "expiring" | "expired" | "suspended";
+  locked: boolean;
+  start: string | null;
+  end: string | null;
+  daysLeft: number | null;
+  suspendedReason: string | null;
+  message: string | null;
+}
+
 export interface Profile {
   id: number;
   nom: string;
@@ -205,9 +216,11 @@ export interface Profile {
   company: string;
   isSubAccount: boolean;
   canEdit: boolean;
-  /** Only the company's main account changes its own password and manages the team */
+  /** Passwords are managed by IGTS: always false for company accounts */
   canChangePassword?: boolean;
+  /** The main account adds colleagues and sets their rights */
   canManageTeam?: boolean;
+  subscription?: SubscriptionInfo;
   memberSince: string | null;
   stats: { evaluatedThisMonth: number; openActionsCreated: number };
   secteurs: Ref[];
@@ -223,6 +236,8 @@ export interface TeamMember {
   isMain: boolean;
   canEdit: boolean;
   active: boolean;
+  /** Added by the main account, waiting for IGTS to set its password */
+  pending?: boolean;
   isMe: boolean;
   since: string | null;
 }
@@ -276,7 +291,7 @@ export interface AdminOverview {
     overdueActions: number;
   }[];
   /** Work waiting on IGTS itself */
-  todo: { unassignedTexts: number; drafts: number };
+  todo: { unassignedTexts: number; drafts: number; accountsToActivate?: number; subscriptionsToFollow?: number };
 }
 
 export interface AdminCompany {
@@ -292,6 +307,7 @@ export interface AdminCompany {
   activated: boolean;
   subAccounts: number;
   stats?: ComplianceStats;
+  subscription?: SubscriptionInfo;
 }
 
 export interface AdminText {

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { Icon, type IconName } from "../icons";
 import { cn } from "../ui";
 import type { AccountType, SessionUser } from "@/lib/session";
@@ -11,8 +12,9 @@ import { useLive } from "../live-context";
 import { useTour } from "../tour";
 import { ShinyText } from "../reactbits/shiny-text";
 import { useVeillePending } from "@/lib/veille-pending";
+import { useApi } from "@/lib/use-api";
 
-type BadgeKind = "toEvaluate" | "actions" | "drafts";
+type BadgeKind = "toEvaluate" | "actions" | "drafts" | "accounts";
 
 interface NavItem {
   href: string;
@@ -38,9 +40,12 @@ const NAV: Record<AccountType, { title?: string; items: NavItem[] }[]> = {
     {
       items: [
         { href: "/dashboard", label: "Tableau de bord", icon: "grid" },
+        { href: "/dashboard/statistiques", label: "Statistiques", icon: "chart", isNew: true },
         { href: "/dashboard/companies", label: "Entreprises", icon: "building" },
+        { href: "/dashboard/comptes", label: "Comptes à activer", icon: "userPlus", badge: "accounts" },
         { href: "/dashboard/texts", label: "Textes réglementaires", icon: "library" },
         { href: "/dashboard/veille", label: "Veille automatique", icon: "sparkle", badge: "drafts" },
+        { href: "/dashboard/enquetes", label: "Enquêtes de satisfaction", icon: "message", isNew: true },
       ],
     },
     {
@@ -67,9 +72,34 @@ function DraftsBadge() {
   );
 }
 
+/** Colleagues' accounts waiting for their password from IGTS (refreshed on each page change). */
+function AccountsBadge() {
+  const pathname = usePathname();
+  const { data, reload } = useApi<unknown[]>("/admin/accounts/pending");
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    void reload();
+  }, [pathname, reload]);
+  const n = data?.length ?? 0;
+  if (!n) return null;
+  return (
+    <span
+      title={`${n} compte(s) à activer`}
+      className="tabular flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-saffron-500 px-1.5 text-xs font-bold text-ink-900"
+    >
+      {n > 99 ? "99+" : n}
+    </span>
+  );
+}
+
 function NavBadge({ kind }: { kind: BadgeKind }) {
   const live = useLive();
   if (kind === "drafts") return <DraftsBadge />;
+  if (kind === "accounts") return <AccountsBadge />;
   const s = live?.stats;
   if (!s) return null;
   if (kind === "toEvaluate") {

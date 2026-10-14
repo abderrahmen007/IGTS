@@ -73,6 +73,16 @@ function IgtsNextStep({ data }: { data: AdminOverview }) {
     title = `${plural(todo.drafts, "texte du JORT attend", "textes du JORT attendent")} votre validation`;
     body = "L’IA les a repérés dans le Journal officiel, classés et résumés. Relisez-les, puis publiez : les entreprises abonnées sont prévenues.";
     cta = { href: "/dashboard/veille", label: "Valider les textes" };
+  } else if (todo.accountsToActivate) {
+    eyebrow = "Comptes";
+    title = `${plural(todo.accountsToActivate, "compte attend", "comptes attendent")} son mot de passe`;
+    body = "Des entreprises ont ajouté des collègues. Les mots de passe sont gérés par IGTS : définissez-les pour ouvrir leur accès.";
+    cta = { href: "/dashboard/comptes", label: "Activer les comptes" };
+  } else if (todo.subscriptionsToFollow) {
+    eyebrow = "Abonnements";
+    title = `${plural(todo.subscriptionsToFollow, "abonnement arrive", "abonnements arrivent")} à échéance`;
+    body = "Fin dans moins de 30 jours, expirés ou suspendus. Une fois le paiement reçu, renouvelez-les en un clic depuis la fiche de l’entreprise.";
+    cta = { href: "/dashboard/companies?abonnement=a-relancer", label: "Voir les entreprises" };
   } else if (todo.unassignedTexts > 0) {
     title = `${plural(todo.unassignedTexts, "texte n’est distribué", "textes ne sont distribués")} à aucune entreprise`;
     body = "Vérifiez leur secteur et leur thème, ou affectez-les à la main aux entreprises concernées.";

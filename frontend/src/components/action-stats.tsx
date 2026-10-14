@@ -4,12 +4,11 @@ import { useEffect } from "react";
 import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts";
 import { BentoGrid, BentoGridItem } from "./aceternity/bento-grid";
 import { AnimatedContent } from "./reactbits/animated-content";
-import { CountUp } from "./reactbits/count-up";
-import { Icon, type IconName } from "./icons";
 import { EmptyState, ErrorState, Skeleton } from "./ui";
 import { ChartContainer, ChartLegend, ChartTooltip, ChartTooltipContent, type ChartConfig } from "./ui/chart";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { useApi } from "@/lib/use-api";
+import { DataTable, Kpi } from "./charts/kit";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ActionStats } from "@/lib/types";
@@ -37,50 +36,6 @@ const domainConfig = {
 const singleConfig = { count: { label: "Actions", color: INDIGO } } satisfies ChartConfig;
 
 const shorten = (s: string, n = 24) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
-
-// ─── KPI tiles ───────────────────────────────────────────────────────
-
-function Kpi({
-  icon,
-  label,
-  value,
-  suffix,
-  sub,
-  tone,
-  meter,
-}: {
-  icon: IconName;
-  label: string;
-  value: number | null;
-  suffix?: string;
-  sub: string;
-  tone?: "coral" | "ok";
-  meter?: number | null;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex min-w-0 flex-col gap-2 rounded-[20px] p-4",
-        tone === "coral" ? "bg-coral-100" : "glass",
-      )}
-    >
-      <span className={cn("flex items-center gap-2 text-[13px]", tone === "coral" ? "text-[#7a2e0c]" : "text-ink-600")}>
-        <Icon name={icon} size={16} strokeWidth={1.8} />
-        {label}
-      </span>
-      <span className={cn("tabular font-serif text-[30px] font-semibold leading-none", tone === "coral" ? "text-coral-700" : "text-ink-900")}>
-        {value === null ? "—" : <CountUp to={value} />}
-        {value !== null && suffix}
-      </span>
-      {meter !== undefined && meter !== null && (
-        <span className="h-1.5 overflow-hidden rounded-full bg-brand-50" aria-hidden="true">
-          <span className="block h-full rounded-full bg-brand-500 transition-[width] duration-700" style={{ width: `${meter}%` }} />
-        </span>
-      )}
-      <span className={cn("text-[12.5px] leading-snug", tone === "coral" ? "text-[#7a2e0c]" : "text-ink-500")}>{sub}</span>
-    </div>
-  );
-}
 
 // ─── Status split: one stacked bar ───────────────────────────────────
 
@@ -126,43 +81,6 @@ function StatusSplit({ stats }: { stats: ActionStats }) {
         ))}
       </ul>
     </div>
-  );
-}
-
-// ─── Table view (every chart's numbers stay readable without colour) ─
-
-function DataTable({ head, rows }: { head: string[]; rows: (string | number)[][] }) {
-  return (
-    <details className="group/table text-[13px]">
-      <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 font-semibold text-brand-700 hover:underline">
-        <Icon name="chevronRight" size={14} className="transition-transform group-open/table:rotate-90" />
-        Voir les chiffres
-      </summary>
-      <div className="mt-2 overflow-x-auto rounded-xl border border-ink-150" data-lenis-prevent>
-        <table className="w-full min-w-[320px]">
-          <thead className="bg-paper">
-            <tr>
-              {head.map((h, i) => (
-                <th key={h} className={cn("px-3 py-2 font-semibold text-ink-500", i ? "text-right" : "text-left")}>
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-ink-150">
-            {rows.map((r) => (
-              <tr key={String(r[0])}>
-                {r.map((c, i) => (
-                  <td key={i} className={cn("px-3 py-1.5", i ? "tabular text-right text-ink-900" : "text-ink-700")}>
-                    {typeof c === "number" ? formatNumber(c) : c}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </details>
   );
 }
 

@@ -43,51 +43,10 @@ const RIGHTS = {
   },
 };
 
-/** A strong, readable password (no 0/O, 1/l) to hand over to the colleague. */
-function generatePassword() {
-  const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = new Uint32Array(12);
-  crypto.getRandomValues(bytes);
-  const raw = Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
-  return `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8)}`;
-}
-
-function PasswordField({ value, onChange, id }: { value: string; onChange: (v: string) => void; id: string }) {
-  const toast = useToast();
-  return (
-    <div className="flex gap-2">
-      <Input
-        id={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        minLength={8}
-        required
-        autoComplete="new-password"
-        className="font-mono"
-      />
-      <Button type="button" variant="outline" size="icon" aria-label="Générer un mot de passe" onClick={() => onChange(generatePassword())}>
-        <Icon name="wand" size={17} />
-      </Button>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        aria-label="Copier le mot de passe"
-        disabled={!value}
-        onClick={() => {
-          void navigator.clipboard?.writeText(value).then(() => toast("Mot de passe copié."));
-        }}
-      >
-        <Icon name="copy" size={17} />
-      </Button>
-    </div>
-  );
-}
-
 // ─── Create / edit an employee account ──────────────────────────────
 
-type FormState = { nom: string; fonction: string; email: string; tel: string; password: string; rights: "edit" | "read" };
-const EMPTY: FormState = { nom: "", fonction: "", email: "", tel: "", password: "", rights: "read" };
+type FormState = { nom: string; fonction: string; email: string; tel: string; rights: "edit" | "read" };
+const EMPTY: FormState = { nom: "", fonction: "", email: "", tel: "", rights: "read" };
 
 function MemberDialog({
   member,
@@ -119,10 +78,9 @@ function MemberDialog({
               fonction: member.fonction ?? "",
               email: member.email,
               tel: member.tel ?? "",
-              password: "",
               rights: member.canEdit ? "edit" : "read",
             }
-          : { ...EMPTY, password: generatePassword() },
+          : EMPTY,
       );
     }
   }
@@ -140,12 +98,12 @@ function MemberDialog({
     };
     try {
       const team = creating
-        ? await api<TeamResponse>("/company/team", { method: "POST", body: { ...body, password: form.password } })
+        ? await api<TeamResponse>("/company/team", { method: "POST", body })
         : await api<TeamResponse>(`/company/team/${member.id}`, { method: "PATCH", body });
       onSaved(team);
       toast(
         creating
-          ? `Compte créé pour ${form.nom}. Transmettez-lui son mot de passe.`
+          ? `Compte demandé pour ${form.nom} : IGTS l’activera et lui communiquera son mot de passe.`
           : "Compte mis à jour.",
       );
       onOpenChange(false);
@@ -163,7 +121,7 @@ function MemberDialog({
           <DialogTitle>{creating ? "Ajouter un compte" : `Modifier ${member.nom}`}</DialogTitle>
           <DialogDescription>
             {creating
-              ? "Un compte secondaire pour un collègue : il voit la veille de votre entreprise selon les droits choisis."
+              ? "Un accès pour un collègue, selon les droits choisis. IGTS active le compte et lui communique son mot de passe."
               : "Les changements de droits s’appliquent immédiatement."}
           </DialogDescription>
         </DialogHeader>
@@ -194,15 +152,6 @@ function MemberDialog({
               <Input id="m-tel" type="tel" value={form.tel} placeholder="+216" onChange={(e) => setForm({ ...form, tel: e.target.value })} />
             </Field>
           </div>
-          {creating && (
-            <Field
-              label="Mot de passe"
-              htmlFor="m-pwd"
-              hint="Au moins 8 caractères. Il n’est jamais envoyé par e-mail : transmettez-le vous-même."
-            >
-              <PasswordField id="m-pwd" value={form.password} onChange={(password) => setForm({ ...form, password })} />
-            </Field>
-          )}
           <fieldset className="flex flex-col gap-2">
             <legend className="mb-1.5 text-[13px] font-semibold text-ink-700">Droits d’accès</legend>
             <RadioGroup value={form.rights} onValueChange={(v) => setForm({ ...form, rights: v as FormState["rights"] })}>
@@ -221,70 +170,7 @@ function MemberDialog({
             Annuler
           </Button>
           <Button type="submit" form="member-form" disabled={saving}>
-            {saving ? "Enregistrement…" : creating ? "Créer le compte" : "Enregistrer"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function ResetPasswordDialog({
-  member,
-  onClose,
-}: {
-  member: TeamMember | null;
-  onClose: () => void;
-}) {
-  const toast = useToast();
-  const [password, setPassword] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [shownFor, setShownFor] = useState<number | null>(null);
-  // A fresh password each time the dialog opens
-  const openFor = member?.id ?? null;
-  if (openFor !== shownFor) {
-    setShownFor(openFor);
-    if (openFor !== null) {
-      setPassword(generatePassword());
-      setError(null);
-    }
-  }
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!member) return;
-    setSaving(true);
-    try {
-      await api(`/company/team/${member.id}/password`, { method: "POST", body: { password } });
-      toast(`Nouveau mot de passe enregistré pour ${member.nom}.`);
-      onClose();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Modification impossible.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={Boolean(member)} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[460px]">
-        <DialogHeader>
-          <DialogTitle>Nouveau mot de passe</DialogTitle>
-          <DialogDescription>
-            Pour {member?.nom}. Copiez-le et transmettez-le-lui : l’ancien ne fonctionnera plus.
-          </DialogDescription>
-        </DialogHeader>
-        <form id="reset-form" onSubmit={submit} className="flex flex-col gap-3">
-          <PasswordField id="reset-pwd" value={password} onChange={setPassword} />
-          {error && <p className="text-[13px] text-bad-700">{error}</p>}
-        </form>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Annuler
-          </Button>
-          <Button type="submit" form="reset-form" disabled={saving || password.length < 8}>
-            {saving ? "Enregistrement…" : "Enregistrer"}
+            {saving ? "Enregistrement…" : creating ? "Demander le compte" : "Enregistrer"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -306,7 +192,6 @@ export default function TeamPage() {
   const { data, error, loading, reload, setData } = useApi<TeamResponse>("/company/team");
   const [editing, setEditing] = useState<TeamMember | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [resetFor, setResetFor] = useState<TeamMember | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
 
   const members = data?.members ?? [];
@@ -345,7 +230,7 @@ export default function TeamPage() {
         title="Mon équipe"
         description={
           canManage
-            ? "Créez un compte pour chaque collègue et choisissez ce qu’il peut faire."
+            ? "Ajoutez vos collègues et choisissez ce que chacun peut faire. IGTS active chaque compte et gère les mots de passe."
             : "Les personnes de votre entreprise qui ont accès à la veille, et ce que chacune peut faire."
         }
         actions={
@@ -422,15 +307,15 @@ export default function TeamPage() {
                         <Icon name="pencil" size={16} className="text-ink-500" />
                         Modifier les informations
                       </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => setResetFor(m)}>
-                        <Icon name="key" size={16} className="text-ink-500" />
-                        Nouveau mot de passe
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem variant={m.active ? "destructive" : "default"} onSelect={() => void toggleActive(m)}>
-                        <Icon name={m.active ? "pause" : "refresh"} size={16} />
-                        {m.active ? "Désactiver le compte" : "Réactiver le compte"}
-                      </DropdownMenuItem>
+                      {!m.pending && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem variant={m.active ? "destructive" : "default"} onSelect={() => void toggleActive(m)}>
+                            <Icon name={m.active ? "pause" : "refresh"} size={16} />
+                            {m.active ? "Désactiver le compte" : "Réactiver le compte"}
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
@@ -441,7 +326,11 @@ export default function TeamPage() {
                 {(!canManage || m.isMain) && (
                   <Badge tone={m.canEdit ? "ok" : "neutral"}>{m.canEdit ? RIGHTS.edit.title : RIGHTS.read.title}</Badge>
                 )}
-                {!m.active && <Badge tone="bad">Désactivé</Badge>}
+                {m.pending ? (
+                  <Badge tone="warn">En attente d’activation par IGTS</Badge>
+                ) : (
+                  !m.active && <Badge tone="bad">Désactivé</Badge>
+                )}
               </div>
 
               {canManage && !m.isMain && (
@@ -451,7 +340,7 @@ export default function TeamPage() {
                   </label>
                   <Select
                     value={m.canEdit ? "edit" : "read"}
-                    disabled={busy === m.id || !m.active}
+                    disabled={busy === m.id || (!m.active && !m.pending)}
                     onValueChange={(v) =>
                       void patch(m, { canEdit: v === "edit" }, `${m.nom} : ${v === "edit" ? RIGHTS.edit.title : RIGHTS.read.title}.`)
                     }
@@ -506,7 +395,6 @@ export default function TeamPage() {
       )}
 
       <MemberDialog member={editing} open={dialogOpen} onOpenChange={setDialogOpen} onSaved={setData} />
-      <ResetPasswordDialog member={resetFor} onClose={() => setResetFor(null)} />
     </>
   );
 }

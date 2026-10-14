@@ -81,7 +81,9 @@ export async function api<T>(
     if (res.status === 401 && auth) {
       clearSession();
       if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
-        window.location.href = "/login?expired=1";
+        // Subscription ended or suspended by IGTS: the sign-in page explains it
+        const locked = (data as { code?: string } | null)?.code === "SUBSCRIPTION_LOCKED";
+        window.location.href = locked ? "/login?locked=1" : "/login?expired=1";
       }
     }
     throw new ApiError(messageFrom(data, res.status), res.status, data);

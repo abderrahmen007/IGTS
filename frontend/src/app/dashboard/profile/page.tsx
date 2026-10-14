@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Icon, type IconName } from "@/components/icons";
-import { Modal, useToast } from "@/components/overlay";
+import { useToast } from "@/components/overlay";
 import { useMe } from "@/components/me-context";
 import { useTour } from "@/components/tour";
 import { Badge, Button, Field, Input, Skeleton, Toggle } from "@/components/ui";
@@ -13,97 +13,6 @@ import { openAssistant } from "@/lib/assistant";
 import { clearSession, getSession, saveSession } from "@/lib/session";
 import { formatDate, formatNumber, initials } from "@/lib/format";
 import type { Profile } from "@/lib/types";
-
-function PasswordModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const toast = useToast();
-  const [form, setForm] = useState({ current: "", next: "", confirm: "" });
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  const [wasOpen, setWasOpen] = useState(open);
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (open) {
-      setForm({ current: "", next: "", confirm: "" });
-      setError(null);
-    }
-  }
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (form.next !== form.confirm) {
-      setError("Les deux nouveaux mots de passe ne sont pas identiques.");
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    try {
-      await api("/company/me/password", { method: "POST", body: { current: form.current, next: form.next } });
-      toast("Mot de passe modifié.");
-      onClose();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Modification impossible.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      size="sm"
-      title="Changer le mot de passe"
-      description="Au moins 8 caractères. Il fonctionne aussi sur l’ancienne plateforme."
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Annuler
-          </Button>
-          <Button type="submit" form="pwd-form" loading={saving}>
-            Enregistrer
-          </Button>
-        </>
-      }
-    >
-      <form id="pwd-form" onSubmit={submit} className="flex flex-col gap-4">
-        <Field label="Mot de passe actuel" htmlFor="pw-cur">
-          <Input
-            id="pw-cur"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={form.current}
-            onChange={(e) => setForm({ ...form, current: e.target.value })}
-          />
-        </Field>
-        <Field label="Nouveau mot de passe" htmlFor="pw-new">
-          <Input
-            id="pw-new"
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            value={form.next}
-            onChange={(e) => setForm({ ...form, next: e.target.value })}
-          />
-        </Field>
-        <Field label="Confirmer le nouveau mot de passe" htmlFor="pw-conf">
-          <Input
-            id="pw-conf"
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            value={form.confirm}
-            onChange={(e) => setForm({ ...form, confirm: e.target.value })}
-          />
-        </Field>
-        {error && <p className="text-[13px] text-bad-700">{error}</p>}
-      </form>
-    </Modal>
-  );
-}
 
 function Row({ icon, title, sub, action }: { icon: IconName; title: string; sub: string; action: ReactNode }) {
   return (
@@ -128,7 +37,6 @@ export default function ProfilePage() {
   const p = me.profile;
   const [form, setForm] = useState({ nom: "", fonction: "", tel: "" });
   const [saving, setSaving] = useState(false);
-  const [pwd, setPwd] = useState(false);
 
   const [shown, setShown] = useState<Profile | null>(null);
   if (p && p !== shown) {
@@ -265,24 +173,27 @@ export default function ProfilePage() {
           </form>
 
           <section className="flex flex-col divide-y divide-ink-100 rounded-[22px] border border-ink-200/80 bg-white px-6 py-2">
-            {p.canChangePassword !== false ? (
+            {/* Every password is managed by IGTS (supervisor, 10/2026) */}
+            <Row
+              icon="key"
+              title="Mot de passe"
+              sub="Géré par IGTS. Pour le changer ou en cas d’oubli, contactez IGTS."
+              action={<Icon name="lock" size={17} className="text-ink-400" />}
+            />
+            {p.subscription && p.subscription.status !== "none" && p.subscription.end && (
               <Row
-                icon="key"
-                title="Mot de passe"
-                sub="Utilisé ici et sur l’ancienne plateforme"
-                action={
-                  <Button variant="secondary" size="sm" onClick={() => setPwd(true)}>
-                    Changer
-                  </Button>
+                icon="calendar"
+                title="Abonnement IGTS Veille"
+                sub={
+                  p.subscription.status === "expiring"
+                    ? `Se termine le ${formatDate(p.subscription.end)} : contactez IGTS pour le renouveler.`
+                    : `Du ${formatDate(p.subscription.start)} au ${formatDate(p.subscription.end)}`
                 }
-              />
-            ) : (
-              /* Secondary accounts: the main account manages their password (supervisor, 09/10) */
-              <Row
-                icon="key"
-                title="Mot de passe"
-                sub="Géré par le compte principal de votre entreprise. Adressez-vous à lui en cas d’oubli."
-                action={<Icon name="lock" size={17} className="text-ink-400" />}
+                action={
+                  <Badge tone={p.subscription.status === "expiring" ? "warn" : "ok"}>
+                    {p.subscription.status === "expiring" ? "Bientôt à renouveler" : "Actif"}
+                  </Badge>
+                }
               />
             )}
             <Row
@@ -398,7 +309,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {p.canChangePassword !== false && <PasswordModal open={pwd} onClose={() => setPwd(false)} />}
+
     </div>
   );
 }

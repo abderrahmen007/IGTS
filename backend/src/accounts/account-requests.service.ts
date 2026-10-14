@@ -120,7 +120,7 @@ export class AccountRequestsService {
           company,
           requestedBy: o.requestedBy,
           canEdit: canEditFromRights(account.multicompte, account.droitacceeId),
-          url: `${this.appUrl}/dashboard/companies/${o.ownerId}?onglet=utilisateurs`,
+          url: `${this.appUrl}/dashboard/companies/${o.ownerId}?tab=utilisateurs`,
         }),
       });
     }

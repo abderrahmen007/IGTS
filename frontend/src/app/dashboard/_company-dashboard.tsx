@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { Badge, ErrorState, Ring, Skeleton, StackedBar, cn, toneBadge } from "@/components/ui";
 import { Icon, type IconName } from "@/components/icons";
 import { ServiceTile } from "@/components/service-tile";
+import { FeedbackInvite } from "@/components/feedback-invite";
 import { StatusBadge } from "@/components/status-badge";
 import { useLive } from "@/components/live-context";
 import { useMe } from "@/components/me-context";
@@ -232,6 +233,8 @@ export function CompanyDashboard() {
       </section>
 
       {error && <ErrorState message={error} onRetry={reload} />}
+
+      <FeedbackInvite />
 
       <section data-tour="services" aria-label="Services" className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <ServiceTile

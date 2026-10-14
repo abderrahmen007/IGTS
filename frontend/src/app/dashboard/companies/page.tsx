@@ -20,13 +20,14 @@ import {
 import { useApi } from "@/lib/use-api";
 import { NewCompanyModal } from "@/components/admin/new-company-modal";
 import { useDebounced, useUrlState } from "@/lib/use-url-state";
+import { subscriptionBadge } from "@/components/admin/company-subscription";
 import { formatDate, formatNumber, formatPercent } from "@/lib/format";
 import type { AdminCompany, Paginated } from "@/lib/types";
 
 function CompaniesView() {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
-  const [q, setQ] = useUrlState(["search", "page", "new"] as const);
+  const [q, setQ] = useUrlState(["search", "page", "new", "abonnement"] as const);
   const [search, setSearch] = useState(q.search);
   // "?new=1" (link from the admin home) opens the creation form directly
   useEffect(() => {
@@ -45,6 +46,7 @@ function CompaniesView() {
     search: q.search,
     page: q.page || 1,
     pageSize: 25,
+    abonnement: q.abonnement || undefined,
   });
 
   return (
@@ -72,6 +74,29 @@ function CompaniesView() {
             placeholder="Rechercher une entreprise, un contact, une ville…"
             className="sm:max-w-sm sm:flex-1"
           />
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Abonnement">
+            {[
+              { value: "", label: "Toutes" },
+              { value: "a-relancer", label: "Abonnement à relancer" },
+              { value: "bloques", label: "Accès fermé" },
+              { value: "sans-date", label: "Sans date" },
+            ].map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                aria-pressed={(q.abonnement || "") === f.value}
+                onClick={() => setQ({ abonnement: f.value || null })}
+                className={cn(
+                  "h-8 rounded-full border px-3 text-[13px] font-medium transition-colors",
+                  (q.abonnement || "") === f.value
+                    ? "border-brand-800 bg-brand-800 text-white"
+                    : "border-ink-200 bg-white text-ink-700 hover:border-brand-200",
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
           {data && (
             <span className="tabular text-[13px] text-ink-500 sm:ml-auto">
               {formatNumber(data.total)} entreprise{data.total > 1 ? "s" : ""}
@@ -150,7 +175,11 @@ function CompaniesView() {
                         {formatPercent(st?.complianceRate)}
                       </td>
                       <td className={td}>
-                        <Badge tone={c.activated ? "ok" : "neutral"}>{c.activated ? "Actif" : "Désactivé"}</Badge>
+                        {!c.activated ? (
+                          <Badge tone="neutral">Désactivé</Badge>
+                        ) : (
+                          <Badge tone={subscriptionBadge(c.subscription).tone}>{subscriptionBadge(c.subscription).label}</Badge>
+                        )}
                       </td>
                     </tr>
                   );

@@ -33,17 +33,22 @@ const COMPANY_PAGES: Destination[] = [
   { label: "Plan d’action", href: "/dashboard/actions", icon: "listChecks", keywords: "actions tableau" },
   { label: "Statistiques du plan d’action", href: "/dashboard/actions?vue=stats", icon: "chart", keywords: "graphiques chiffres" },
   { label: "Mon équipe", href: "/dashboard/team", icon: "users", keywords: "comptes utilisateurs droits" },
-  { label: "Mon profil", href: "/dashboard/profile", icon: "user", keywords: "compte préférences e-mails" },
+  { label: "Mon profil", href: "/dashboard/profile", icon: "user", keywords: "compte préférences e-mails abonnement mot de passe" },
+  { label: "Enquête de satisfaction", href: "/dashboard/avis", icon: "message", keywords: "avis questionnaire septembre" },
 ];
 
 const ADMIN_PAGES: Destination[] = [
   { label: "Tableau de bord", href: "/dashboard", icon: "home", keywords: "accueil" },
+  { label: "Statistiques", href: "/dashboard/statistiques", icon: "chart", keywords: "chiffres activité conformité graphiques" },
   { label: "Entreprises", href: "/dashboard/companies", icon: "building", keywords: "clients comptes" },
+  { label: "Abonnements à relancer", href: "/dashboard/companies?abonnement=a-relancer", icon: "calendar", keywords: "abonnement expiré renouveler échéance" },
+  { label: "Comptes à activer", href: "/dashboard/comptes", icon: "userPlus", keywords: "mot de passe collaborateurs activation" },
   { label: "Nouvelle entreprise", href: "/dashboard/companies?new=1", icon: "plus", keywords: "créer client" },
   { label: "Textes réglementaires", href: "/dashboard/texts", icon: "file", keywords: "veille" },
   { label: "Publier un texte", href: "/dashboard/texts/new", icon: "plus", keywords: "nouveau texte" },
   { label: "Textes non distribués", href: "/dashboard/texts?unassigned=1", icon: "alert", keywords: "affecter" },
   { label: "Veille automatique (textes du JORT à valider)", href: "/dashboard/veille", icon: "sparkle", keywords: "jort brouillons ia collecte iort" },
+  { label: "Enquêtes de satisfaction", href: "/dashboard/enquetes", icon: "message", keywords: "avis septembre questionnaire résultats" },
   { label: "Référentiel", href: "/dashboard/referentiel", icon: "library", keywords: "secteurs thèmes types" },
   { label: "Administrateurs", href: "/dashboard/admins", icon: "users", keywords: "comptes igts" },
 ];

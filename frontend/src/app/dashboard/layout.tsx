@@ -10,18 +10,20 @@ import { LiveProvider } from "@/components/live-context";
 import { MeProvider } from "@/components/me-context";
 import { TourProvider } from "@/components/tour";
 import { AssistantWidget } from "@/components/assistant-widget";
+import { SubscriptionBanner } from "@/components/subscription-banner";
 import { Spinner } from "@/components/ui";
 import { SmoothScroll } from "@/components/smooth-scroll";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getSession, type SessionUser } from "@/lib/session";
 
-const ADMIN_ONLY = ["/dashboard/companies", "/dashboard/texts", "/dashboard/referentiel", "/dashboard/admins", "/dashboard/veille"];
+const ADMIN_ONLY = ["/dashboard/companies", "/dashboard/texts", "/dashboard/referentiel", "/dashboard/admins", "/dashboard/veille", "/dashboard/comptes", "/dashboard/statistiques", "/dashboard/enquetes"];
 const COMPANY_ONLY = [
   "/dashboard/my-texts",
   "/dashboard/evaluations",
   "/dashboard/actions",
   "/dashboard/profile",
   "/dashboard/team",
+  "/dashboard/avis",
 ];
 
 /** Soft IGTS-coloured halos behind the glass (the ring of the logo, saffron, sky). */
@@ -91,7 +93,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <div className="flex min-h-screen flex-col">
         <Topbar user={user} onMenu={() => setMenuOpen(true)} />
-        <main className="mx-auto w-full max-w-[1240px] flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:pt-8">{children}</main>
+        <main className="mx-auto w-full max-w-[1240px] flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:pt-8">
+          {user.type === "company" && <SubscriptionBanner />}
+          {children}
+        </main>
       </div>
     </div>
   );

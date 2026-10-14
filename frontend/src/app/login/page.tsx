@@ -21,7 +21,12 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (getSession()) router.replace("/dashboard");
-    if (new URLSearchParams(window.location.search).get("expired")) {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("locked")) {
+      setError(
+        "L’accès de votre entreprise à IGTS Veille est fermé : l’abonnement a pris fin ou a été suspendu. Contactez IGTS pour le renouveler ; vos données sont conservées.",
+      );
+    } else if (params.get("expired")) {
       setNotice("Votre session a expiré. Veuillez vous reconnecter.");
     }
   }, [router]);

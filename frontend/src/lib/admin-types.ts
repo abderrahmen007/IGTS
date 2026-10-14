@@ -1,4 +1,4 @@
-import type { ComplianceStats, Ref } from "./types";
+import type { ComplianceStats, Ref, SubscriptionInfo } from "./types";
 
 export interface CatalogSecteur {
   id: number;
@@ -16,9 +16,19 @@ export interface SubAccount {
   /** "Tous les droits" (evaluate and act) vs read-only */
   canEdit: boolean;
   createdAt: string;
+  /** Added by the company: waiting for IGTS to set its password */
+  pending?: boolean;
+}
+
+export interface SubscriptionHistoryItem {
+  at: string;
+  by: string;
+  action: "started" | "renewed" | "dates" | "suspended" | "resumed";
+  note: string;
 }
 
 export interface CompanyDetail {
+  subscription: SubscriptionInfo & { history: SubscriptionHistoryItem[] };
   company: {
     id: number;
     raisonsociale: string | null;
@@ -187,4 +197,60 @@ export interface DraftPublishResult {
   textId: number;
   distributedTo: number;
   draft: VeilleDraft;
+}
+
+// ─── Statistics (admin) ─────────────────────────────────────────────
+
+export interface ActivityEvent {
+  at: string;
+  type: "login" | "subscription" | "account" | "feedback" | "text-published" | "veille";
+  actor: { kind: "admin" | "company" | "system"; id: number | null; nom: string };
+  companyId: number | null;
+  label: string;
+}
+
+export interface AdminStats {
+  generatedAt: string;
+  clients: {
+    companies: number;
+    subAccounts: number;
+    accountsToActivate: number;
+    subscriptions: Record<"none" | "active" | "expiring" | "expired" | "suspended", number>;
+    toFollow: { id: number; name: string; status: "expiring" | "expired" | "suspended"; end: string | null; daysLeft: number | null }[];
+  };
+  engagement: {
+    activeCompanies: number;
+    openCompanies: number;
+    inactive: { id: number; name: string; lastLogin: string | null }[];
+  };
+  activity: {
+    month: string;
+    label: string;
+    logins: number;
+    evaluations: number;
+    actionsCreated: number;
+    actionsDone: number;
+    textsPublished: number;
+    newClients: number;
+  }[];
+  compliance: {
+    average: number | null;
+    rated: number;
+    notRated: number;
+    buckets: { label: string; count: number }[];
+    lowest: { id: number; name: string; rate: number | null; toAnalyse: number; nonConforme: number }[];
+    highest: { id: number; name: string; rate: number | null; toAnalyse: number; nonConforme: number }[];
+    toAnalyse: number;
+  };
+  texts: {
+    total: number;
+    last30: number;
+    assignments: number;
+    evaluatedShare: number | null;
+    drafts: number;
+    bySecteur: { name: string; count: number }[];
+    byType: { name: string; count: number }[];
+  };
+  feedback: { id: number; title: string; open: boolean; respondents: number; companies: number; average: number | null } | null;
+  recent: ActivityEvent[];
 }

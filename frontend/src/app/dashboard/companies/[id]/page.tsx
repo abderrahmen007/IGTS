@@ -10,10 +10,12 @@ import { CompanyFields, FormError } from "@/components/admin/fields";
 import { CompanySubscriptions } from "@/components/admin/company-subscriptions";
 import { CompanyTexts } from "@/components/admin/company-texts";
 import { CompanyUsers, PasswordModal } from "@/components/admin/company-users";
+import { CompanySubscriptionPanel } from "@/components/admin/company-subscription";
+import { Icon } from "@/components/icons";
 import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { useUrlState } from "@/lib/use-url-state";
-import { formatDate, formatNumber, formatPercent } from "@/lib/format";
+import { formatDate, formatNumber, formatPercent, plural } from "@/lib/format";
 import type { CompanyDetail, CompanyForm } from "@/lib/admin-types";
 
 type Tab = "abonnements" | "textes" | "utilisateurs" | "infos";
@@ -198,6 +200,23 @@ function CompanyView() {
           </>
         }
       />
+
+      <CompanySubscriptionPanel detail={data} onChange={setData} />
+
+      {data.subAccounts.some((u) => u.pending) && tab !== "utilisateurs" && (
+        <button
+          type="button"
+          onClick={() => setQ({ tab: "utilisateurs" }, { resetPage: false })}
+          className="mb-6 flex w-full items-center gap-3 rounded-2xl bg-saffron-50 px-4 py-3 text-left text-[14px] text-saffron-700 hover:bg-saffron-100"
+        >
+          <Icon name="userPlus" size={18} />
+          <span className="flex-1">
+            {plural(data.subAccounts.filter((u) => u.pending).length, "compte ajouté par l’entreprise attend", "comptes ajoutés par l’entreprise attendent")}{" "}
+            son mot de passe : activez-le depuis l’onglet Utilisateurs.
+          </span>
+          <Icon name="arrowRight" size={16} />
+        </button>
+      )}
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <Stat label="Textes suivis" value={formatNumber(s.total)} sub={`${formatNumber(s.applicable)} applicables`} />
