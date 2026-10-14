@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { Button, Field, Input, cn } from "@/components/ui";
 import { Icon } from "@/components/icons";
-import { Spotlight } from "@/components/aceternity/spotlight";
+import { motion, useReducedMotion } from "motion/react";
+import { AnimatedContent } from "@/components/reactbits/animated-content";
+import { BlurText } from "@/components/reactbits/blur-text";
+import { Prism } from "@/components/reactbits/prism";
+import { RotatingText } from "@/components/reactbits/rotating-text";
+import { spotlight } from "@/components/reactbits/spotlight-card";
+import { StarBorder } from "@/components/reactbits/star-border";
+import { ProductPreview } from "@/components/login/product-preview";
 import { api, ApiError } from "@/lib/api";
 import { getSession, saveSession, type AccountType, type SessionUser } from "@/lib/session";
 
@@ -18,6 +25,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const reduce = useReducedMotion();
 
   useEffect(() => {
     if (getSession()) router.replace("/dashboard");
@@ -53,49 +61,31 @@ export default function LoginPage() {
   return (
     <div className="relative isolate flex min-h-screen overflow-hidden bg-paper">
       {/* Brand panel */}
-      <aside className="zellige relative hidden w-[44%] max-w-[620px] flex-col justify-between overflow-hidden bg-brand-800 p-12 text-white lg:flex">
-        <div
-          aria-hidden="true"
-          className="absolute -bottom-32 -right-24 h-[420px] w-[420px] rounded-full border-[70px] border-saffron-500 opacity-40 blur-[40px]"
-        />
-        <Spotlight className="-left-40 -top-56" />
-        <Image
-          src="/brand/igts-veille-white.png"
-          alt="IGTS Veille"
-          width={148}
-          height={103}
-          loading="eager"
-          className="relative"
-        />
-
-        <div className="relative max-w-md">
-          <h1 className="font-serif text-[34px] font-semibold leading-tight">
-            Veille réglementaire
-            <br />
-            santé, sécurité, environnement.
-          </h1>
-          <p className="mt-4 text-[15px] leading-relaxed text-brand-100">
-            Retrouvez les textes applicables à votre activité, évaluez votre conformité et suivez vos plans
-            d’action, au même endroit.
-          </p>
-
-          <dl className="mt-10 grid grid-cols-3 gap-6 border-t border-white/15 pt-6">
-            {[
-              ["Textes", "suivis et résumés"],
-              ["Conformité", "évaluée texte par texte"],
-              ["Actions", "suivies jusqu’à clôture"],
-            ].map(([k, v]) => (
-              <div key={k}>
-                <dt className="text-sm font-semibold">{k}</dt>
-                <dd className="mt-1 text-[13px] leading-snug text-brand-100/80">{v}</dd>
-              </div>
-            ))}
-          </dl>
+      <aside className="relative hidden w-[44%] max-w-[620px] flex-col overflow-hidden bg-brand-800 text-white lg:flex">
+        <div aria-hidden="true" className="zellige absolute inset-0 opacity-50" />
+        <Prism className="absolute inset-0" center={[0.04, 0.2]} scale={0.64} />
+        {/* Keeps the text readable over the light */}
+        <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[60%] bg-gradient-to-t from-brand-900 via-brand-800/85 to-transparent" />
+        <div className="relative flex flex-1 flex-col p-12">
+          <Image src="/brand/igts-veille-white.png" alt="IGTS Veille" width={148} height={103} loading="eager" />
+          <div className="mt-auto max-w-md">
+            <h1 className="font-serif text-[36px] font-semibold leading-[1.15]">
+              <BlurText text="Veille réglementaire" />
+              <br />
+              <RotatingText
+                words={["santé et sécurité", "environnement", "qualité", "énergie"]}
+                className="mt-2 rounded-xl bg-saffron-500 px-3 pb-1 text-[#2b1700]"
+              />
+            </h1>
+            <AnimatedContent delay={0.35} distance={10}>
+              <p className="mt-5 text-[15px] leading-relaxed text-brand-100">
+                Les textes applicables à votre activité, votre conformité et vos plans d’action, au même endroit.
+              </p>
+            </AnimatedContent>
+            <ProductPreview className="mt-8" />
+            <p className="mt-10 text-xs text-brand-100/70">© {new Date().getFullYear()} IGTS — International Gold Training &amp; Services</p>
+          </div>
         </div>
-
-        <p className="relative text-xs text-brand-100/70">
-          © {new Date().getFullYear()} IGTS — International Gold Training &amp; Services
-        </p>
       </aside>
 
       {/* Form */}
@@ -104,7 +94,14 @@ export default function LoginPage() {
           <div className="absolute -right-40 -top-48 h-[560px] w-[560px] rounded-full border-[110px] border-brand-600 opacity-25 blur-[46px]" />
           <div className="absolute -bottom-40 left-10 h-[420px] w-[420px] rounded-full bg-saffron-500 opacity-20 blur-[90px]" />
         </div>
-        <div className="glass w-full max-w-[420px] rounded-[26px] px-7 py-9 sm:px-9">
+        <motion.div
+          className="w-full max-w-[420px]"
+          initial={reduce ? false : { opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, delay: 0.1, ease: [0.165, 0.84, 0.44, 1] }}
+        >
+        <StarBorder className="rounded-[26px]">
+        <div className="glass spotlight w-full rounded-[26px] px-7 py-9 sm:px-9" {...spotlight("rgb(130 121 223 / 0.14)")}>
           <Image
             src="/brand/igts-veille.png"
             alt="IGTS Veille"
@@ -116,6 +113,10 @@ export default function LoginPage() {
 
           <h2 className="font-serif text-[30px] font-semibold text-ink-900">Connexion</h2>
           <p className="mt-1.5 text-sm text-ink-600">Accédez à votre espace de veille.</p>
+          <p className="mt-3 flex items-center gap-2 text-[13px] text-ink-600 lg:hidden">
+            Veille
+            <RotatingText words={["santé et sécurité", "environnement", "qualité", "énergie"]} className="rounded-lg bg-saffron-100 px-2 font-semibold text-saffron-700" />
+          </p>
 
           <div
             role="tablist"
@@ -204,6 +205,8 @@ export default function LoginPage() {
             Mot de passe oublié ou accès à créer ? Contactez votre conseiller IGTS.
           </p>
         </div>
+        </StarBorder>
+        </motion.div>
       </main>
     </div>
   );

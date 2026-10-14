@@ -8,6 +8,8 @@ import { ServiceTile } from "@/components/service-tile";
 import { useToast } from "@/components/overlay";
 import { useUser } from "@/components/session-context";
 import { CountUp } from "@/components/reactbits/count-up";
+import { AnimatedItem } from "@/components/reactbits/animated-list";
+import { BlurText } from "@/components/reactbits/blur-text";
 import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { formatDate, formatNumber, formatPercent, plural } from "@/lib/format";
@@ -171,7 +173,7 @@ export function AdminDashboard() {
             {today.format(new Date())}
           </p>
           <h1 className="font-serif text-[34px] font-semibold leading-[1.1] tracking-[-0.01em] text-ink-900 sm:text-[40px]">
-            Bonjour {firstName(user.nom)},
+            <BlurText text={`Bonjour ${firstName(user.nom)},`} />
           </h1>
           {loading && !data ? (
             <Skeleton className="mt-1 h-5 w-80" />
@@ -204,7 +206,8 @@ export function AdminDashboard() {
       {error && <ErrorState message={error} onRetry={reload} />}
 
       <section aria-label="Services" className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        <ServiceTile
+        <AnimatedItem index={0} className="grid">
+          <ServiceTile
           href="/dashboard/companies"
           gem="bg-brand-800 text-white"
           icon="building"
@@ -212,7 +215,9 @@ export function AdminDashboard() {
           label="Entreprises"
           sub={s ? `+ ${formatNumber(s.subAccounts)} comptes utilisateurs` : "clientes"}
         />
-        <ServiceTile
+        </AnimatedItem>
+        <AnimatedItem index={1} className="grid">
+          <ServiceTile
           href="/dashboard/texts"
           gem="bg-info-600 text-white"
           icon="file"
@@ -220,14 +225,18 @@ export function AdminDashboard() {
           label="Textes"
           sub={s ? `+ ${formatNumber(s.textsLast30)} ces 30 jours` : "réglementaires"}
         />
-        <ServiceTile
+        </AnimatedItem>
+        <AnimatedItem index={2} className="grid">
+          <ServiceTile
           href="/dashboard/texts/new"
           gem="bg-saffron-500 text-[#3a2400]"
           icon="plus"
           label="Publier un texte"
           sub="Il part aux entreprises abonnées"
         />
-        <ServiceTile
+        </AnimatedItem>
+        <AnimatedItem index={3} className="grid">
+          <ServiceTile
           href="/dashboard/veille"
           gem="bg-brand-600 text-white"
           icon="sparkle"
@@ -235,6 +244,7 @@ export function AdminDashboard() {
           label="À valider"
           sub="textes du JORT préparés par l’IA"
         />
+        </AnimatedItem>
       </section>
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,540px)_minmax(0,1fr)]">

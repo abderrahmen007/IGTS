@@ -14,6 +14,8 @@ import { useUser } from "@/components/session-context";
 import { CountUp } from "@/components/reactbits/count-up";
 import { Spotlight } from "@/components/aceternity/spotlight";
 import { AnimatedContent } from "@/components/reactbits/animated-content";
+import { AnimatedItem } from "@/components/reactbits/animated-list";
+import { BlurText } from "@/components/reactbits/blur-text";
 import { useApi } from "@/lib/use-api";
 import { openAssistant } from "@/lib/assistant";
 import { formatNumber, formatPercent, plural } from "@/lib/format";
@@ -211,7 +213,7 @@ export function CompanyDashboard() {
             {today.format(new Date())}
           </p>
           <h1 className="font-serif text-[34px] font-semibold leading-[1.1] tracking-[-0.01em] text-ink-900 sm:text-[40px]">
-            Bonjour {name},
+            <BlurText text={`Bonjour ${name},`} />
           </h1>
           {loading && !data ? (
             <Skeleton className="mt-1 h-5 w-80" />
@@ -239,7 +241,8 @@ export function CompanyDashboard() {
       <EcheancesSoon />
 
       <section data-tour="services" aria-label="Services" className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        <ServiceTile
+        <AnimatedItem index={0} className="grid">
+          <ServiceTile
           href="/dashboard/evaluations"
           gem="bg-saffron-500 text-[#3a2400]"
           icon="inbox"
@@ -247,7 +250,9 @@ export function CompanyDashboard() {
           label="À évaluer"
           sub={s?.toAnalyse === 1 ? "texte en attente" : "textes en attente"}
         />
-        <ServiceTile
+        </AnimatedItem>
+        <AnimatedItem index={1} className="grid">
+          <ServiceTile
           dataTour="actions-tile"
           href="/dashboard/actions"
           gem={s && s.overdueActions > 0 ? "bg-coral-600 text-white" : "bg-brand-600 text-white"}
@@ -256,14 +261,18 @@ export function CompanyDashboard() {
           label="Plan d’action"
           sub={s && s.overdueActions > 0 ? "actions en retard" : "actions en cours"}
         />
-        <ServiceTile
+        </AnimatedItem>
+        <AnimatedItem index={2} className="grid">
+          <ServiceTile
           onClick={() => openAssistant()}
           gem="bg-brand-800 text-white"
           icon="sparkle"
           label="Assistant IA"
           sub="Posez une question sur vos textes"
         />
-        <ServiceTile
+        </AnimatedItem>
+        <AnimatedItem index={3} className="grid">
+          <ServiceTile
           href="/dashboard/my-texts"
           gem="bg-info-600 text-white"
           icon="file"
@@ -271,6 +280,7 @@ export function CompanyDashboard() {
           label="Ma veille"
           sub="textes suivis"
         />
+        </AnimatedItem>
       </section>
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,540px)_minmax(0,1fr)]">
@@ -301,12 +311,12 @@ export function CompanyDashboard() {
             {data?.upcomingActions.length === 0 && (
               <p className="px-3 py-6 text-center text-sm text-ink-500">Aucune action en cours pour le moment.</p>
             )}
-            {data?.upcomingActions.map((a) => {
+            {data?.upcomingActions.map((a, i) => {
               const chip = dueChip(a.dueIn);
               const late = a.dueIn !== null && a.dueIn < 0;
               return (
+                <AnimatedItem key={a.id} index={i}>
                 <Link
-                  key={a.id}
                   href={a.texteSocieteId ? `/dashboard/my-texts/${a.texteSocieteId}#actions` : "/dashboard/actions"}
                   className="flex items-center gap-3.5 rounded-xl p-3 transition-colors hover:bg-paper"
                 >
@@ -330,11 +340,12 @@ export function CompanyDashboard() {
                     </span>
                   )}
                 </Link>
+                </AnimatedItem>
               );
             })}
             <p className="mx-3 mt-1 flex items-center gap-2.5 rounded-xl bg-paper px-3.5 py-3 text-[13px] text-ink-600">
               <Icon name="check" size={18} strokeWidth={2} className="text-ok-600" />
-              Rappel par e-mail 7 jours et 1 jour avant chaque échéance.
+              Rappels par e-mail 30 et 7 jours avant chaque échéance, le jour même, puis chaque semaine en cas de retard.
             </p>
           </div>
 
@@ -346,9 +357,9 @@ export function CompanyDashboard() {
               </Link>
             </div>
             {!data && [0, 1, 2].map((i) => <Skeleton key={i} className="mx-3 my-2 h-14" />)}
-            {data?.recentTexts.slice(0, 4).map((t) => (
+            {data?.recentTexts.slice(0, 4).map((t, i) => (
+              <AnimatedItem key={t.id} index={i}>
               <Link
-                key={t.id}
                 href={`/dashboard/my-texts/${t.id}`}
                 className="flex flex-col gap-1.5 rounded-xl p-3 transition-colors hover:bg-paper"
               >
@@ -364,6 +375,7 @@ export function CompanyDashboard() {
                 </span>
                 <span className="line-clamp-2 text-[14.5px] font-semibold leading-snug text-ink-900">{t.titre}</span>
               </Link>
+              </AnimatedItem>
             ))}
             {data?.recentTexts.length === 0 && (
               <p className="px-3 py-6 text-center text-sm text-ink-500">Aucun texte dans votre veille pour le moment.</p>
@@ -380,11 +392,11 @@ export function CompanyDashboard() {
               <span className="text-[13px] text-ink-500">{plural(data.bySecteur.length, "domaine suivi", "domaines suivis")}</span>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-              {data.bySecteur.map((d) => {
+              {data.bySecteur.map((d, i) => {
                 const color = domainColor(d.name);
                 return (
+                <AnimatedItem key={d.id} index={i} className="grid">
                 <Link
-                  key={d.id}
                   href={`/dashboard/my-texts?secteurId=${d.id}`}
                   className="lift flex flex-col gap-3 rounded-[18px] border border-ink-200/80 bg-white px-5 py-[18px]"
                 >
@@ -413,6 +425,7 @@ export function CompanyDashboard() {
                     <b className="font-semibold text-ink-900">{formatPercent(d.complianceRate)}</b> en règle
                   </span>
                 </Link>
+                </AnimatedItem>
               );
               })}
             </div>
