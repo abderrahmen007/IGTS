@@ -109,13 +109,18 @@ export function AssistantWidget() {
   const ask = async (question: string) => {
     const q = question.trim();
     if (q.length < 3 || loading) return;
+    // The last exchanges, so a short follow-up keeps its subject
+    const history = messages
+      .filter((m) => !m.error)
+      .slice(-4)
+      .map((m) => ({ role: m.role, text: m.text.slice(0, 2000) }));
     setMessages((m) => [...m, { role: "user", text: q }]);
     setInput("");
     setLoading(true);
     try {
       const res = await api<{ answer: string; sources: Message["sources"]; unavailable?: boolean }>("/chatbot/ask", {
         method: "POST",
-        body: { question: q, texteSocieteId: textId ? Number(textId) : undefined },
+        body: { question: q, texteSocieteId: textId ? Number(textId) : undefined, history },
       });
       const answer: Message = { role: "assistant", text: res.answer, sources: res.sources, error: res.unavailable };
       setFresh(answer.error ? null : answer);
