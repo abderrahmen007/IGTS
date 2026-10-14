@@ -13,6 +13,7 @@ import { RotatingText } from "@/components/reactbits/rotating-text";
 import { spotlight } from "@/components/reactbits/spotlight-card";
 import { StarBorder } from "@/components/reactbits/star-border";
 import { ProductPreview } from "@/components/login/product-preview";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { api, ApiError } from "@/lib/api";
 import { getSession, saveSession, type AccountType, type SessionUser } from "@/lib/session";
 
@@ -26,6 +27,8 @@ export default function LoginPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const reduce = useReducedMotion();
+  // Short screens: a smaller prism, higher up, and two notifications
+  const short = useMediaQuery("(max-height: 820px)");
 
   useEffect(() => {
     if (getSession()) router.replace("/dashboard");
@@ -63,7 +66,7 @@ export default function LoginPage() {
       {/* Brand panel */}
       <aside className="relative hidden w-[44%] max-w-[620px] flex-col overflow-hidden bg-brand-800 text-white lg:flex">
         <div aria-hidden="true" className="zellige absolute inset-0 opacity-50" />
-        <Prism className="absolute inset-0" center={[0.04, 0.2]} scale={0.64} />
+        <Prism className="absolute inset-0" center={short ? [0.06, 0.25] : [0.04, 0.2]} scale={short ? 0.5 : 0.64} />
         {/* Keeps the text readable over the light */}
         <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[60%] bg-gradient-to-t from-brand-900 via-brand-800/85 to-transparent" />
         <div className="relative flex flex-1 flex-col p-12">
@@ -82,7 +85,7 @@ export default function LoginPage() {
                 Les textes applicables à votre activité, votre conformité et vos plans d’action, au même endroit.
               </p>
             </AnimatedContent>
-            <ProductPreview className="mt-8" />
+            <ProductPreview className="mt-8" count={short ? 2 : 3} />
             <p className="mt-10 text-xs text-brand-100/70">© {new Date().getFullYear()} IGTS — International Gold Training &amp; Services</p>
           </div>
         </div>

@@ -13,15 +13,14 @@ const ITEMS: { icon: IconName; chip: string; title: string; sub: string }[] = [
   { icon: "listChecks", chip: "bg-[#d9622b] text-white", title: "Action clôturée", sub: "Vérification des extincteurs" },
   { icon: "sparkle", chip: "bg-white text-[#1c076c]", title: "Une question sur un texte ?", sub: "L’assistant répond à partir de votre veille" },
 ];
-const SHOWN = 3;
 
 /**
  * Login page: a short stack of notifications that renews itself
  * (React Bits — Animated List), to show what the platform does.
  */
-export function ProductPreview({ className }: { className?: string }) {
+export function ProductPreview({ className, count = 3 }: { className?: string; count?: number }) {
   const reduce = useReducedMotion();
-  const [tick, setTick] = useState(SHOWN - 1);
+  const [tick, setTick] = useState(2);
 
   useEffect(() => {
     if (reduce) return;
@@ -30,7 +29,7 @@ export function ProductPreview({ className }: { className?: string }) {
   }, [reduce]);
 
   // Newest on top
-  const shown = Array.from({ length: SHOWN }, (_, k) => tick - k).map((n) => ({ n, item: ITEMS[n % ITEMS.length] }));
+  const shown = Array.from({ length: count }, (_, k) => tick - k).map((n) => ({ n, item: ITEMS[n % ITEMS.length] }));
 
   return (
     <ul aria-hidden="true" className={cn("flex flex-col gap-2.5", className)}>
