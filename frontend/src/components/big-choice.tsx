@@ -12,15 +12,15 @@ export interface ChoiceOption {
 
 /** Plain-language answers used everywhere a manager evaluates a text. */
 export const APPLICABILITY_CHOICES: ChoiceOption[] = [
-  { id: 1, label: "Oui, il nous concerne", hint: "Notre activité est visée par ce texte.", tone: "brand" },
-  { id: 2, label: "Non, il ne nous concerne pas", hint: "Aucune évaluation ni action ne sera demandée.", tone: "neutral" },
-  { id: 3, label: "Je ne sais pas encore", hint: "Le texte reste dans « À évaluer ».", tone: "warn" },
+  { id: 1, label: "Applicable", hint: "Notre activité est visée par ce texte.", tone: "brand" },
+  { id: 2, label: "Non applicable", hint: "Aucune évaluation ni action ne sera demandée.", tone: "neutral" },
+  { id: 3, label: "Non analysé", hint: "Le texte reste dans « À évaluer ».", tone: "warn" },
 ];
 
 export const COMPLIANCE_CHOICES: ChoiceOption[] = [
-  { id: 1, label: "Oui, nous sommes en règle", hint: "Vous pourrez ajouter une action de suivi.", tone: "ok" },
-  { id: 2, label: "Non, il faut agir", hint: "Décrivez l’action juste en dessous.", tone: "coral" },
-  { id: 3, label: "Pour information seulement", hint: "Aucune obligation directe pour vous.", tone: "info" },
+  { id: 1, label: "Conforme", hint: "Vous pourrez ajouter une action de suivi.", tone: "ok" },
+  { id: 2, label: "Non conforme", hint: "Décrivez l’action juste en dessous.", tone: "coral" },
+  { id: 3, label: "À titre indicatif", hint: "Aucune obligation directe pour vous.", tone: "info" },
 ];
 
 /**

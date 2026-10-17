@@ -290,7 +290,7 @@ export function EvaluationPanel({
             <LockedNote>
               {app === NON_APPLICABLE
                 ? "Ce texte ne vous concerne pas : pas d’évaluation de conformité."
-                : "Répondez d’abord « Oui, il nous concerne »."}
+                : "Répondez d’abord « Applicable »."}
             </LockedNote>
           )}
         </div>
