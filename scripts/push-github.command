@@ -17,13 +17,14 @@ if git ls-files | grep -Eq "$SENSITIVE"; then
   pause; exit 1
 fi
 
-# 2. Le dépôt doit rester privé (un dépôt privé est invisible sans identifiants : réponse 404)
+# 2. Dépôt public : simple avertissement (un dépôt privé est invisible sans identifiants : réponse 404)
 URL="$(git remote get-url origin)"
 SLUG="$(echo "$URL" | sed -E 's#^(https://github.com/|git@github.com:)##; s#\.git$##')"
 CODE="$(curl -s -o /dev/null -w '%{http_code}' "https://api.github.com/repos/$SLUG")"
 if [ "$CODE" = "200" ]; then
-  echo "ARRÊT : le dépôt $SLUG est PUBLIC sur GitHub. Rendez-le privé (Settings › General › Danger Zone) avant d'envoyer."
-  pause; exit 1
+  # Public on purpose (decision of 21/10/2026): warn only. Client data and secrets stay blocked above.
+  echo "Attention : le dépôt $SLUG est PUBLIC. Tout ce qui est envoyé sera visible par tous."
+  echo
 fi
 
 # 3. Rien à perdre : on n'envoie que si GitHub n'a pas de commits absents du Mac
