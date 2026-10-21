@@ -14,12 +14,12 @@ export interface ChoiceOption {
 export const APPLICABILITY_CHOICES: ChoiceOption[] = [
   { id: 1, label: "Applicable", hint: "Notre activité est visée par ce texte.", tone: "brand" },
   { id: 2, label: "Non applicable", hint: "Aucune évaluation ni action ne sera demandée.", tone: "neutral" },
-  { id: 3, label: "Non analysé", hint: "Le texte reste dans « À évaluer ».", tone: "warn" },
+  { id: 3, label: "Non analysé", hint: "Le texte reste dans « Analyse des textes ».", tone: "warn" },
 ];
 
 export const COMPLIANCE_CHOICES: ChoiceOption[] = [
-  { id: 1, label: "Conforme", hint: "Vous pourrez ajouter une action de suivi.", tone: "ok" },
-  { id: 2, label: "Non conforme", hint: "Décrivez l’action juste en dessous.", tone: "coral" },
+  { id: 1, label: "Conforme", hint: "Vous pourrez ajouter une action de mise à conformité.", tone: "ok" },
+  { id: 2, label: "Non conforme", hint: "Plan d’action exigé : décrivez l’action juste en dessous.", tone: "coral" },
   { id: 3, label: "À titre indicatif", hint: "Aucune obligation directe pour vous.", tone: "info" },
 ];
 

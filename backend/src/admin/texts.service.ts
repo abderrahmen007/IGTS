@@ -156,7 +156,7 @@ export class AdminTextsService {
       const r = await this.assignment.assign(
         companyId,
         [{ id: t.id, secteurId: t.secteurId, themeId: t.themeId }],
-        { themed: false, message: 'Ce texte a été ajouté.' },
+        { themed: false, message: 'Nouveau texte ajouté' },
       );
       added += r.added;
     }

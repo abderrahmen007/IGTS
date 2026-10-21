@@ -196,9 +196,9 @@ export function EvaluationPanel({
       const s = statusFromIds(d.applicabilite.id, d.etat?.id ?? null);
       toast(
         s.key === "conforme"
-          ? "Parfait : ce texte est en règle."
+          ? "Parfait : ce texte est conforme."
           : s.key === "non-conforme" && !hasDraft && openActions.length === 0
-            ? "Évaluation enregistrée. Pensez à définir l’action pour vous mettre en règle."
+            ? "Évaluation enregistrée. Un plan d’action est exigé : pensez à définir l’action."
             : hasDraft
               ? "Évaluation et action enregistrées."
               : "Évaluation enregistrée.",
@@ -218,7 +218,7 @@ export function EvaluationPanel({
     hint = "Seul un éditeur peut enregistrer une évaluation.";
   } else if (mode === "queue" && app === NON_ANALYSE) {
     submitLabel = "Garder pour plus tard";
-    hint = "Le texte restera dans votre liste « À évaluer ».";
+    hint = "Le texte restera dans « Analyse des textes ».";
   } else if (!complete && app !== NON_ANALYSE) {
     hint = "Répondez aux questions ci-dessus pour continuer.";
   } else if (etat === NON_CONFORME && !hasDraft && openActions.length === 0) {
@@ -232,14 +232,14 @@ export function EvaluationPanel({
 
   return (
     <aside
-      aria-label="Votre évaluation"
+      aria-label="Analyse du texte"
       className={cn(
         "glass flex flex-col gap-5 rounded-[22px] p-6",
         className,
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <h2 className="font-serif text-[22px] font-semibold text-ink-900">Votre évaluation</h2>
+        <h2 className="font-serif text-[22px] font-semibold text-ink-900">Analyse du texte</h2>
         <span
           key={status.key}
           className={cn("animate-[pop_260ms_var(--ease-out-soft)] rounded-full px-3 py-1 text-[12.5px] font-semibold", toneBadge(status.tone))}
@@ -272,14 +272,14 @@ export function EvaluationPanel({
         </div>
       </section>
 
-      {/* 2 — En règle ? */}
+      {/* 2 — Conforme ? */}
       <section className="flex flex-col gap-3">
-        <StepHeader n={2} title="Êtes-vous en règle ?" state={step2} />
+        <StepHeader n={2} title="Êtes-vous conforme ?" state={step2} />
         <div className="ml-[13px] flex flex-col gap-2 border-l-2 border-ink-100 pl-[27px]">
           {app === APPLICABLE ? (
             <div className="animate-[rise_280ms_var(--ease-out-soft)]">
               <BigChoice
-                name="Êtes-vous en règle ?"
+                name="Êtes-vous conforme ?"
                 options={COMPLIANCE_CHOICES}
                 value={etat}
                 onChoose={(id) => choose({ etat: id })}
@@ -305,7 +305,7 @@ export function EvaluationPanel({
           extra={
             !blockReason &&
             (etat === NON_CONFORME ? (
-              <Badge tone="coral">Recommandé</Badge>
+              <Badge tone="coral">Plan d’action exigé</Badge>
             ) : (
               <Badge tone="neutral">Facultatif</Badge>
             ))
@@ -432,7 +432,7 @@ export function EvaluationPanel({
                       className="flex h-11 items-center gap-2 rounded-[10px] border-[1.5px] border-dashed border-ink-300 bg-white px-3.5 text-[13.5px] font-semibold text-brand-800 hover:border-brand-600"
                     >
                       <Icon name="plus" size={16} strokeWidth={2} />
-                      {etat === CONFORME ? "Ajouter une action de suivi" : "Ajouter une autre action"}
+                      {etat === CONFORME ? "Ajouter une action de mise à conformité" : "Ajouter une autre action"}
                     </button>
                     <button
                       type="button"

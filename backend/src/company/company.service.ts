@@ -300,6 +300,7 @@ export class CompanyService {
 
     if (q.status) and.push(STATUS_FILTERS[q.status]);
     if (q.secteurId) and.push({ secteurId: q.secteurId });
+    if (q.themeId) and.push({ themeId: q.themeId });
     if (q.typeId) and.push({ texte: { typeId: q.typeId } });
     const search = q.search?.trim();
     if (search) {
@@ -319,13 +320,22 @@ export class CompanyService {
       this.prisma.texteSociete.count({ where }),
       this.prisma.texteSociete.findMany({
         where,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        orderBy:
+          q.sort === 'secteur'
+            ? [
+                { secteurId: { sort: 'asc', nulls: 'last' } },
+                { themeId: { sort: 'asc', nulls: 'last' } },
+                { createdAt: 'desc' },
+                { id: 'desc' },
+              ]
+            : [{ createdAt: 'desc' }, { id: 'desc' }],
         skip,
         take: pageSize,
         include: TEXT_INCLUDE,
       }),
       this.prisma.secteur.findMany(),
     ]);
+    const themeName = await this.themeNames(rows.map((r) => r.themeId));
 
     const actionCounts = await this.prisma.plusaction.groupBy({
       by: ['texteSocieteId'],
@@ -338,6 +348,7 @@ export class CompanyService {
     return {
       items: rows.map((ts) => ({
         ...this.toListItem(ts, secteurName),
+        theme: ts.themeId ? { id: ts.themeId, name: themeName.get(ts.themeId) ?? '' } : null,
         actionsCount: actionsBy.get(ts.id) ?? 0,
       })),
       total,
@@ -348,19 +359,33 @@ export class CompanyService {
   }
 
   async filters(user: AuthUser) {
-    const [lk, secteurCounts] = await Promise.all([
+    const [lk, secteurCounts, themeCounts] = await Promise.all([
       this.lookups(),
       this.prisma.texteSociete.groupBy({
         by: ['secteurId'],
         where: this.scope(user),
         _count: { _all: true },
       }),
+      this.prisma.texteSociete.groupBy({
+        by: ['themeId'],
+        where: { ...this.scope(user), themeId: { not: null } },
+        _count: { _all: true },
+      }),
     ]);
     const used = new Map(secteurCounts.map((s) => [s.secteurId, s._count._all]));
+    const themeUsed = new Map(themeCounts.map((t) => [t.themeId, t._count._all]));
+    const themes = themeUsed.size
+      ? await this.prisma.theme.findMany({
+          where: { id: { in: [...themeUsed.keys()].filter((i): i is number => i !== null) } },
+          select: { id: true, name: true, secteurId: true },
+          orderBy: { name: 'asc' },
+        })
+      : [];
     return {
       secteurs: lk.secteurs
         .filter((s) => used.has(s.id))
         .map((s) => ({ id: s.id, name: s.name, count: used.get(s.id) })),
+      themes: themes.map((t) => ({ id: t.id, name: t.name, secteurId: t.secteurId, count: themeUsed.get(t.id) ?? 0 })),
       types: lk.types,
       applicabilites: lk.applicabilites,
       etats: lk.etats,

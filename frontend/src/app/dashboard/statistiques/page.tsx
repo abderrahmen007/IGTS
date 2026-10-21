@@ -447,7 +447,7 @@ function Statistics({ s }: { s: AdminStats }) {
         <AnimatedContent className="md:col-span-2 xl:col-span-3">
           <BentoGridItem
             className="h-full"
-            title="Textes par domaine"
+            title="Textes par secteur"
             description={`${plural(texts.assignments, "affectation", "affectations")} aux clients, dont ${formatPercent(texts.evaluatedShare)} déjà évaluées.`}
             action={
               texts.drafts > 0 ? (
@@ -460,7 +460,7 @@ function Statistics({ s }: { s: AdminStats }) {
             }
           >
             <BarList rows={top(texts.bySecteur)} unit={["texte", "textes"]} />
-            <DataTable head={["Domaine", "Textes"]} rows={texts.bySecteur.map((r) => [r.name, r.count])} />
+            <DataTable head={["Secteur", "Textes"]} rows={texts.bySecteur.map((r) => [r.name, r.count])} />
           </BentoGridItem>
         </AnimatedContent>
 

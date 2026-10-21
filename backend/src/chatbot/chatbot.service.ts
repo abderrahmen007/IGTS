@@ -211,7 +211,7 @@ RÈGLES
 3. Cite chaque obligation avec le numéro du texte entre crochets, par exemple [2]. N'utilise et ne cite que les textes qui répondent vraiment à la question ; ignore les autres sans les mentionner.
 4. Si aucun texte ne répond, dis-le en une ou deux phrases : la veille de l'entreprise ne contient pas de texte sur ce sujet, et elle peut demander à son conseiller IGTS de l'ajouter. N'énumère pas de textes hors sujet.
 5. Présentation : une phrase de réponse directe, puis les obligations en liste courte (une ligne par obligation, commençant par « • », avec sa citation). Signale quand l'entreprise a évalué un texte non conforme ou ne l'a pas encore évalué. Pas de Markdown (ni astérisques ni titres).
-6. Questions sur l'utilisation de la plateforme : réponds simplement à partir des menus Accueil, À évaluer, Mes textes, Plan d'action, Échéances, Mon équipe et Mon profil.
+6. Questions sur l'utilisation de la plateforme : réponds simplement à partir des menus Accueil, Analyse des textes, Mes textes, Plan d'action, Échéances, Mon équipe et Mon profil.
 7. Reste concis : 180 mots au plus, sauf si la question demande du détail.
 ${conversation ? `\nÉCHANGE PRÉCÉDENT\n${conversation}\n` : ''}
 TEXTES

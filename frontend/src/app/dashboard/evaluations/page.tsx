@@ -6,6 +6,7 @@ import { EvaluationPanel } from "@/components/evaluation-panel";
 import { TextReader } from "@/components/text-reader";
 import { Icon } from "@/components/icons";
 import { StatusBadge } from "@/components/status-badge";
+import { SecteurPills, ThemeSelect, themeForSecteur } from "@/components/secteur-filter";
 import { AnimatedTabsList } from "@/components/aceternity/animated-tabs";
 import { AnimatedContent } from "@/components/reactbits/animated-content";
 import { scrollToTop } from "@/components/smooth-scroll";
@@ -58,7 +59,7 @@ function TextPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" aria-label="Choisir un texte à évaluer">
+        <Button variant="outline" size="sm" aria-label="Choisir un texte à analyser">
           <Icon name="listChecks" size={16} />
           Choisir un texte
           <Icon name="chevronDown" size={14} />
@@ -66,10 +67,10 @@ function TextPicker({
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[min(560px,calc(100vw-2rem))] p-0">
         <Command>
-          <CommandInput placeholder="Titre, numéro, domaine…" />
+          <CommandInput placeholder="Titre, numéro, secteur…" />
           <CommandList>
             <CommandEmpty>Aucun texte ne correspond.</CommandEmpty>
-            <CommandGroup heading={`${plural(queue.length, "texte à évaluer", "textes à évaluer")}`}>
+            <CommandGroup heading={`${plural(queue.length, "texte non analysé", "textes non analysés")}`}>
               {queue.map((t) => (
                 <CommandItem
                   key={t.id}
@@ -126,20 +127,24 @@ function PendingList({ onPick }: { onPick: (id: number) => void }) {
   const [search, setSearch] = useState("");
   const q = useDebounced(search);
   const [secteurId, setSecteurId] = useState("");
+  const [themeId, setThemeId] = useState("");
   const [page, setPage] = useState(1);
   const { data: filters } = useApi<CompanyFilters>("/company/filters");
   const { data, error, loading, reload } = useApi<Paginated<TextListItem>>("/company/texts", {
     status: "a-analyser",
     search: q,
     secteurId,
+    themeId,
+    sort: "secteur",
     page,
     pageSize: 20,
   });
 
-  // A new search or domain starts again from page 1
-  const [filterKey, setFilterKey] = useState(`${q}|${secteurId}`);
-  if (filterKey !== `${q}|${secteurId}`) {
-    setFilterKey(`${q}|${secteurId}`);
+  // A new search, secteur or thème starts again from page 1
+  const key = `${q}|${secteurId}|${themeId}`;
+  const [filterKey, setFilterKey] = useState(key);
+  if (filterKey !== key) {
+    setFilterKey(key);
     setPage(1);
   }
 
@@ -148,41 +153,17 @@ function PendingList({ onPick }: { onPick: (id: number) => void }) {
       <div className="flex flex-col gap-3 border-b border-ink-150 px-5 py-4">
         <SearchInput value={search} onChange={setSearch} placeholder="Rechercher un titre, un numéro, un mot-clé…" className="md:max-w-md" />
         {filters && filters.secteurs.length > 1 && (
-          <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none" role="group" aria-label="Domaine">
-            {[{ id: "", name: "Tous les domaines" }, ...filters.secteurs.map((s) => ({ id: String(s.id), name: s.name }))].map((s) => {
-              const active = secteurId === s.id;
-              const isAll = s.id === "";
-              const theme = getDomainTheme(s.name);
-              return (
-                <button
-                  key={s.id || "all"}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => setSecteurId(active && !isAll ? "" : s.id)}
-                  className={cn(
-                    "inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-1.5 text-[13.5px] font-semibold transition-all duration-150",
-                    isAll
-                      ? active
-                        ? "bg-brand-900 text-white shadow-sm ring-1 ring-brand-900"
-                        : "border border-ink-200/90 bg-white text-ink-700 hover:border-ink-400 hover:text-ink-900"
-                      : active
-                        ? theme.active
-                        : theme.inactive,
-                  )}
-                >
-                  {!isAll && (
-                    <span
-                      className={cn(
-                        "h-2 w-2 shrink-0 rounded-full transition-colors",
-                        active ? (theme.dot.includes("amber") ? "bg-amber-950" : "bg-white") : theme.dot,
-                      )}
-                    />
-                  )}
-                  {s.name}
-                </button>
-              );
-            })}
-          </div>
+          <SecteurPills
+            filters={filters}
+            secteurId={secteurId}
+            onChange={(id) => {
+              setSecteurId(id);
+              setThemeId(themeForSecteur(filters, id, themeId));
+            }}
+          />
+        )}
+        {filters?.themes && filters.themes.length > 0 && (
+          <ThemeSelect filters={filters} secteurId={secteurId} themeId={themeId} onChange={setThemeId} className="sm:w-72" />
         )}
       </div>
 
@@ -222,13 +203,14 @@ function PendingList({ onPick }: { onPick: (id: number) => void }) {
                       </span>
                     </>
                   )}
+                  {t.theme?.name && <span className="truncate">· {t.theme.name}</span>}
                 </span>
               </span>
               <span className="hidden shrink-0 sm:block">
                 <StatusBadge applicabilite={t.applicabilite} etat={t.etat} />
               </span>
               <span className="flex shrink-0 items-center gap-1 text-[13.5px] font-semibold text-brand-700">
-                Évaluer
+                Analyser
                 <Icon name="arrowRight" size={15} className="transition-transform group-hover:translate-x-0.5" />
               </span>
             </button>
@@ -236,7 +218,7 @@ function PendingList({ onPick }: { onPick: (id: number) => void }) {
         ))}
       </ul>
       {data && data.items.length === 0 && (
-        <EmptyState icon="search" title="Aucun texte ne correspond" description="Modifiez la recherche ou le domaine." />
+        <EmptyState icon="search" title="Aucun texte ne correspond" description="Modifiez la recherche, le secteur ou le thème." />
       )}
       {data && data.pageCount > 1 && (
         <Pagination
@@ -367,11 +349,11 @@ export default function EvaluatePage() {
             Accueil
           </Link>
           <span aria-hidden="true">/</span>
-          <span className="font-semibold text-ink-900">À évaluer</span>
+          <span className="font-semibold text-ink-900">Analyse des textes</span>
           {total > 0 && <span className="rounded-full bg-saffron-100 px-2 py-0.5 text-xs font-semibold text-saffron-700">{formatNumber(total)}</span>}
         </nav>
         <AnimatedTabsList
-          label="Façon d’évaluer"
+          label="Façon d’analyser"
           layoutId="evaluate-mode"
           value={mode}
           className="lg:ml-4"
@@ -386,7 +368,7 @@ export default function EvaluatePage() {
             {position >= 0 && (
               <span className="text-[13.5px] text-ink-600">
                 Texte <b className="text-ink-900">{formatNumber(position + 1)}</b> sur {formatNumber(total)}
-                {done > 0 && <span className="text-ok-700"> · {plural(done, "évalué", "évalués")}</span>}
+                {done > 0 && <span className="text-ok-700"> · {plural(done, "analysé", "analysés")}</span>}
               </span>
             )}
             <TextPicker queue={queue} currentId={currentId} total={total} onPick={(id) => show(id)} onShowList={() => show(currentId, "list")} />
@@ -419,10 +401,10 @@ export default function EvaluatePage() {
               <Icon name="check" size={30} strokeWidth={2.4} />
             </span>
             <h1 className="mt-5 font-serif text-[30px] font-semibold text-ink-900">
-              {skipped.size ? "Vous avez parcouru tous les textes" : "Tout est évalué"}
+              {skipped.size ? "Vous avez parcouru tous les textes" : "Tous les textes sont analysés"}
             </h1>
             <p className="mt-2 max-w-md text-[15px] leading-relaxed text-ink-600">
-              {done > 0 && `${plural(done, "texte évalué", "textes évalués")} pendant cette session. `}
+              {done > 0 && `${plural(done, "texte analysé", "textes analysés")} pendant cette session. `}
               {skipped.size
                 ? `${plural(skipped.size, "texte passé reviendra", "textes passés reviendront")} la prochaine fois.`
                 : "Aucun texte n’attend votre avis. Vous serez prévenu dès qu’un nouveau texte arrive."}

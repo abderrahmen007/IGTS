@@ -41,7 +41,7 @@ const STEPS: Step[] = [
   {
     target: "services",
     title: "Vos services essentiels",
-    body: "Ces quatre tuiles mènent à ce qui compte : les textes à évaluer, votre plan d’action QHSE, l’assistant juridique et l'ensemble de votre veille réglementaire.",
+    body: "Ces quatre tuiles mènent à ce qui compte : les textes non analysés, votre plan d’action QHSE, l’assistant juridique et l'ensemble de votre veille réglementaire.",
     place: "bottom",
   },
   {
@@ -53,13 +53,13 @@ const STEPS: Step[] = [
   {
     target: "actions-tile",
     title: "Plan d’action assisté par l’IA",
-    body: "Pour chaque texte à mettre en règle, cliquez sur « Suggérer des actions avec l'IA » : elle prépare pour vous les démarches concrètes à mener, le délai conseillé et le responsable.",
+    body: "Pour chaque texte non conforme, cliquez sur « Suggérer des actions avec l'IA » : elle prépare pour vous les démarches concrètes à mener, le délai conseillé et le responsable.",
     place: "bottom",
   },
   {
     target: "compliance",
     title: "Votre taux de conformité en direct",
-    body: "L’anneau montre le pourcentage de textes en règle parmi ceux qui vous concernent. Il s'actualise en direct à chaque évaluation et action complétée.",
+    body: "L’anneau montre le pourcentage de textes conformes parmi ceux qui vous concernent. Il s'actualise en direct à chaque évaluation et action complétée.",
     place: "bottom",
   },
   {

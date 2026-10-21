@@ -24,11 +24,11 @@ function firstName(nom: string) {
 function ClientsCompliance({ data }: { data: AdminOverview }) {
   const c = data.stats.compliance;
   const rows = [
-    { label: "En règle", value: c.conforme, dot: "bg-ok-600" },
-    { label: "À mettre en règle", value: c.nonConforme, dot: "bg-coral-600" },
-    { label: "Pour information", value: c.indicatif, dot: "bg-info-600" },
+    { label: "Conforme", value: c.conforme, dot: "bg-ok-600" },
+    { label: "Non conforme", value: c.nonConforme, dot: "bg-coral-600" },
+    { label: "À titre indicatif", value: c.indicatif, dot: "bg-info-600" },
     { label: "Ne les concerne pas", value: c.nonApplicable, dot: "bg-ink-300" },
-    { label: "En attente d’évaluation", value: c.toAnalyse, dot: "bg-saffron-500" },
+    { label: "Non analysé", value: c.toAnalyse, dot: "bg-saffron-500" },
   ];
   return (
     <div className="flex flex-col items-center gap-6 rounded-[22px] border border-ink-200/80 bg-white p-6 sm:flex-row sm:items-center">
@@ -36,7 +36,7 @@ function ClientsCompliance({ data }: { data: AdminOverview }) {
         <span className="tabular font-serif text-[42px] font-semibold leading-none text-ink-900">
           {c.complianceRate === null ? "—" : <CountUp to={c.complianceRate} format={(n) => formatPercent(n)} />}
         </span>
-        <span className="mt-1.5 text-[13px] text-ink-600">en règle</span>
+        <span className="mt-1.5 text-[13px] text-ink-600">conforme</span>
       </Ring>
       <div className="flex w-full min-w-0 flex-1 flex-col gap-3">
         <h2 className="text-base font-semibold text-ink-900">Conformité moyenne des clients</h2>
@@ -92,7 +92,7 @@ function IgtsNextStep({ data }: { data: AdminOverview }) {
     eyebrow = "Client à relancer";
     title = first.name;
     body = [
-      first.toEvaluate > 0 ? plural(first.toEvaluate, "texte attend son évaluation", "textes attendent leur évaluation") : null,
+      first.toEvaluate > 0 ? plural(first.toEvaluate, "texte non analysé", "textes non analysés") : null,
       first.overdueActions > 0 ? plural(first.overdueActions, "action est en retard", "actions sont en retard") : null,
     ]
       .filter(Boolean)
@@ -155,7 +155,7 @@ export function AdminDashboard() {
     ? [
         `${plural(s.textsLast30, "texte publié", "textes publiés")} ces 30 derniers jours.`,
         s.compliance.toAnalyse > 0
-          ? `${plural(s.compliance.toAnalyse, "évaluation est", "évaluations sont")} en attente chez vos clients.`
+          ? `${plural(s.compliance.toAnalyse, "texte non analysé", "textes non analysés")} chez vos clients.`
           : "Vos clients sont à jour.",
       ].join(" ")
     : "";
@@ -278,7 +278,7 @@ export function AdminDashboard() {
               </span>
               <span className="flex shrink-0 flex-wrap justify-end gap-1.5">
                 {c.overdueActions > 0 && <Badge tone="coral">{plural(c.overdueActions, "en retard", "en retard")}</Badge>}
-                {c.toEvaluate > 0 && <Badge tone="warn">{formatNumber(c.toEvaluate)} à évaluer</Badge>}
+                {c.toEvaluate > 0 && <Badge tone="warn">{formatNumber(c.toEvaluate)} non analysé{c.toEvaluate > 1 ? "s" : ""}</Badge>}
               </span>
             </Link>
           ))}

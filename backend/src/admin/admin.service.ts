@@ -73,7 +73,7 @@ const MAIN_COMPANY: Prisma.CompanyWhereInput = {
   deleted: false,
   multicompte: 0,
 };
-/** Same definition as the company space's « À évaluer ». */
+/** Same definition as the company space's « Analyse des textes ». */
 const PENDING: Prisma.TexteSocieteWhereInput = {
   OR: [
     { applicabiliteId: APPLICABILITE_NON_ANALYSEE },

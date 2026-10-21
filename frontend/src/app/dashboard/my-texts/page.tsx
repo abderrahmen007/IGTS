@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Fragment, Suspense, useEffect, useState } from "react";
 import {
   Badge,
   Button,
@@ -19,6 +19,7 @@ import {
   th,
 } from "@/components/ui";
 import { Tabs } from "@/components/tabs";
+import { SecteurPills, ThemeSelect, themeForSecteur } from "@/components/secteur-filter";
 import { StatusBadge } from "@/components/status-badge";
 import { scrollToTop } from "@/components/smooth-scroll";
 import { useApi } from "@/lib/use-api";
@@ -27,7 +28,7 @@ import { formatDate, formatNumber } from "@/lib/format";
 import { STATUS_OPTIONS, getDomainTheme } from "@/lib/status";
 import type { CompanyFilters, CompanyOverview, Paginated, TextListItem } from "@/lib/types";
 
-const KEYS = ["search", "status", "secteurId", "typeId", "page"] as const;
+const KEYS = ["search", "status", "secteurId", "themeId", "typeId", "tri", "page"] as const;
 
 function MyTextsView() {
   const router = useRouter();
@@ -46,7 +47,10 @@ function MyTextsView() {
     search: q.search,
     status: q.status,
     secteurId: q.secteurId,
+    themeId: q.themeId,
     typeId: q.typeId,
+    // Texts are arranged by secteur (then thème) unless "Plus récents" is chosen
+    sort: q.tri === "recent" ? "recent" : "secteur",
     page: q.page || 1,
     pageSize: 25,
   });
@@ -62,13 +66,14 @@ function MyTextsView() {
         "non-applicable": s.nonApplicable,
       }
     : {};
-  const hasFilters = Boolean(q.search || q.secteurId || q.typeId);
+  const hasFilters = Boolean(q.search || q.secteurId || q.themeId || q.typeId);
+  const bySecteur = q.tri !== "recent";
 
   return (
     <>
       <PageHeader
         title="Mes textes"
-        description="Tous les textes réglementaires suivis pour votre entreprise. Cliquez sur un texte pour le lire et l’évaluer."
+        description="Tous les textes réglementaires suivis pour votre entreprise. Cliquez sur un texte pour le lire et l’analyser."
       />
 
       <Card>
@@ -84,43 +89,12 @@ function MyTextsView() {
           />
         </div>
 
-        {/* Domaines / Secteurs filter pills with related domain colors */}
-        <div className="flex items-center gap-2 overflow-x-auto border-b border-ink-150 px-5 py-3 scrollbar-none">
-          <button
-            type="button"
-            onClick={() => setQ({ secteurId: null })}
-            className={cn(
-              "shrink-0 rounded-full px-4 py-1.5 text-[13.5px] font-semibold transition-all duration-150",
-              !q.secteurId
-                ? "bg-brand-900 text-white shadow-sm ring-1 ring-brand-900"
-                : "border border-ink-200/90 bg-white text-ink-700 hover:border-ink-400 hover:text-ink-900",
-            )}
-          >
-            Tous les domaines
-          </button>
-          {filters?.secteurs.map((s) => {
-            const active = String(s.id) === q.secteurId;
-            const theme = getDomainTheme(s.name);
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setQ({ secteurId: active ? null : String(s.id) })}
-                className={cn(
-                  "inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-1.5 text-[13.5px] font-semibold transition-all duration-150",
-                  active ? theme.active : theme.inactive,
-                )}
-              >
-                <span
-                  className={cn(
-                    "h-2 w-2 shrink-0 rounded-full transition-colors",
-                    active ? (theme.dot.includes("amber") ? "bg-amber-950" : "bg-white") : theme.dot,
-                  )}
-                />
-                {s.name}
-              </button>
-            );
-          })}
+        <div className="border-b border-ink-150 px-5 py-3">
+          <SecteurPills
+            filters={filters}
+            secteurId={q.secteurId}
+            onChange={(id) => setQ({ secteurId: id || null, themeId: themeForSecteur(filters, id, q.themeId) || null })}
+          />
         </div>
 
         <div className="flex flex-col gap-3 border-b border-ink-150 px-5 py-3 md:flex-row md:items-center">
@@ -130,7 +104,13 @@ function MyTextsView() {
             placeholder="Rechercher un titre, un numéro, un mot-clé…"
             className="md:max-w-sm md:flex-1"
           />
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <ThemeSelect
+              filters={filters}
+              secteurId={q.secteurId}
+              themeId={q.themeId}
+              onChange={(id) => setQ({ themeId: id || null })}
+            />
             <Select
               aria-label="Type de texte"
               value={q.typeId}
@@ -144,6 +124,15 @@ function MyTextsView() {
                 </option>
               ))}
             </Select>
+            <Select
+              aria-label="Ordre des textes"
+              value={q.tri === "recent" ? "recent" : ""}
+              onChange={(e) => setQ({ tri: e.target.value || null })}
+              className="w-full sm:w-44"
+            >
+              <option value="">Par secteur</option>
+              <option value="recent">Plus récents</option>
+            </Select>
           </div>
           {hasFilters && (
             <Button
@@ -152,7 +141,7 @@ function MyTextsView() {
               icon="x"
               onClick={() => {
                 setSearch("");
-                setQ({ search: null, secteurId: null, typeId: null });
+                setQ({ search: null, secteurId: null, themeId: null, typeId: null });
               }}
             >
               Effacer
@@ -175,9 +164,9 @@ function MyTextsView() {
               <thead className="border-b border-ink-150 bg-ink-50/60">
                 <tr>
                   <th className={th}>Texte</th>
-                  <th className={cn(th, "hidden lg:table-cell")}>Secteur</th>
+                  <th className={cn(th, "hidden lg:table-cell")}>Secteur / thème</th>
                   <th className={th}>Statut</th>
-                  <th className={cn(th, "hidden md:table-cell")}>Évalué le</th>
+                  <th className={cn(th, "hidden md:table-cell")}>Analysé le</th>
                 </tr>
               </thead>
               <tbody className={cn("divide-y divide-ink-150", loading && data && "opacity-60")}>
@@ -191,9 +180,24 @@ function MyTextsView() {
                       </td>
                     </tr>
                   ))}
-                {data?.items.map((t) => (
+                {data?.items.map((t, i) => {
+                  const prev = i > 0 ? data.items[i - 1] : null;
+                  const group = `${t.secteur?.id ?? 0}|${t.theme?.id ?? 0}`;
+                  const newGroup = bySecteur && (!prev || `${prev.secteur?.id ?? 0}|${prev.theme?.id ?? 0}` !== group);
+                  return (
+                  <Fragment key={t.id}>
+                  {newGroup && (
+                    <tr className="bg-ink-50/70">
+                      <td colSpan={4} className="px-5 py-2 text-[12.5px] font-semibold text-ink-700">
+                        <span className="inline-flex items-center gap-2">
+                          <span className={cn("h-2 w-2 shrink-0 rounded-full", getDomainTheme(t.secteur?.name ?? "").dot)} />
+                          {t.secteur?.name || "Sans secteur"}
+                          {t.theme?.name && <span className="font-medium text-ink-500">· {t.theme.name}</span>}
+                        </span>
+                      </td>
+                    </tr>
+                  )}
                   <tr
-                    key={t.id}
                     onClick={() => router.push(`/dashboard/my-texts/${t.id}`)}
                     className="cursor-pointer transition-colors hover:bg-paper"
                   >
@@ -220,6 +224,7 @@ function MyTextsView() {
                       ) : (
                         "—"
                       )}
+                      {t.theme?.name && <p className="mt-0.5 text-[12.5px] text-ink-500">{t.theme.name}</p>}
                     </td>
                     <td className={td}>
                       <span className="flex flex-wrap gap-1.5">
@@ -243,7 +248,9 @@ function MyTextsView() {
                       )}
                     </td>
                   </tr>
-                ))}
+                  </Fragment>
+                  );
+                })}
               </tbody>
             </table>
             {data && data.items.length === 0 && (

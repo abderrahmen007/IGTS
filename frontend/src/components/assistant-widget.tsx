@@ -25,7 +25,7 @@ const GENERAL = [
 const ABOUT_TEXT = [
   "Explique-moi ce texte simplement",
   "Qu’est-ce que ce texte m’oblige à faire ?",
-  "Quelles preuves garder pour être en règle ?",
+  "Quelles preuves garder pour être conforme ?",
 ];
 
 function load(): { messages: Message[]; greeted: boolean } {

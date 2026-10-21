@@ -25,7 +25,7 @@ function fileLabel(name: string) {
   return name.replace(/-[0-9a-f]{8,}(?=\.[a-z0-9]+$)/i, "").replace(/-/g, " ");
 }
 
-/** Status control as three segments (En cours / À reprendre / Efficace). */
+/** Status control as three segments (En cours / Non efficace / Efficace). */
 export function StatusSegments({
   value,
   onChange,

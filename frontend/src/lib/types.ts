@@ -26,6 +26,7 @@ export interface TextListItem {
   excerpt: string;
   type: Ref | null;
   secteur: Ref | null;
+  theme?: Ref | null;
   applicabilite: Ref;
   etat: Ref | null;
   assignedAt: string | null;
@@ -80,6 +81,7 @@ export interface Counters {
 
 export interface CompanyFilters {
   secteurs: { id: number; name: string; count: number }[];
+  themes?: { id: number; name: string; secteurId: number | null; count: number }[];
   types: Ref[];
   applicabilites: Ref[];
   etats: Ref[];

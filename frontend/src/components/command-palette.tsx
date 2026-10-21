@@ -27,8 +27,8 @@ interface Destination {
 
 const COMPANY_PAGES: Destination[] = [
   { label: "Accueil", href: "/dashboard", icon: "home", keywords: "tableau de bord" },
-  { label: "À évaluer", href: "/dashboard/evaluations", icon: "inbox", keywords: "évaluation nouveaux textes" },
-  { label: "Choisir un texte à évaluer", href: "/dashboard/evaluations?vue=liste", icon: "listChecks", keywords: "liste évaluer" },
+  { label: "Analyse des textes", href: "/dashboard/evaluations", icon: "inbox", keywords: "évaluation analyser à évaluer non analysés nouveaux textes" },
+  { label: "Choisir un texte à analyser", href: "/dashboard/evaluations?vue=liste", icon: "listChecks", keywords: "liste évaluer" },
   { label: "Mes textes", href: "/dashboard/my-texts", icon: "file", keywords: "veille textes réglementaires" },
   { label: "Plan d’action", href: "/dashboard/actions", icon: "listChecks", keywords: "actions tableau" },
   { label: "Statistiques du plan d’action", href: "/dashboard/actions?vue=stats", icon: "chart", keywords: "graphiques chiffres" },

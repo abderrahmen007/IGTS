@@ -25,13 +25,13 @@ export function textStatus(applicabilite: Ref | null, etat: Ref | null): TextSta
 }
 
 export function statusFromIds(applicabiliteId: number | null, etatId: number | null): TextStatus {
-  if (applicabiliteId === NON_APPLICABLE) return { key: "non-applicable", label: "Ne nous concerne pas", tone: "neutral" };
+  if (applicabiliteId === NON_APPLICABLE) return { key: "non-applicable", label: "Non applicable", tone: "neutral" };
   if (applicabiliteId === APPLICABLE) {
-    if (etatId === CONFORME) return { key: "conforme", label: "En règle", tone: "ok" };
-    if (etatId === NON_CONFORME) return { key: "non-conforme", label: "À mettre en règle", tone: "coral" };
-    if (etatId === INDICATIF) return { key: "indicatif", label: "Pour information", tone: "info" };
+    if (etatId === CONFORME) return { key: "conforme", label: "Conforme", tone: "ok" };
+    if (etatId === NON_CONFORME) return { key: "non-conforme", label: "Non conforme", tone: "coral" };
+    if (etatId === INDICATIF) return { key: "indicatif", label: "À titre indicatif", tone: "info" };
   }
-  return { key: "a-analyser", label: "À évaluer", tone: "warn" };
+  return { key: "a-analyser", label: "Non analysé", tone: "warn" };
 }
 
 /**
@@ -41,17 +41,17 @@ export function statusFromIds(applicabiliteId: number | null, etatId: number | n
 export function actionBlockReason(applicabiliteId: number | null, etatId: number | null): string | null {
   if (applicabiliteId === NON_APPLICABLE) return "Ce texte ne concerne pas votre entreprise : aucune action n’est possible ni demandée.";
   if (applicabiliteId !== APPLICABLE) return "Indiquez d’abord si ce texte concerne votre entreprise.";
-  if (etatId === INDICATIF) return "Ce texte est « pour information » : aucune action n’est à prévoir.";
-  if (etatId !== CONFORME && etatId !== NON_CONFORME) return "Indiquez d’abord si vous êtes en règle avec ce texte.";
+  if (etatId === INDICATIF) return "Ce texte est « à titre indicatif » : aucune action n’est à prévoir.";
+  if (etatId !== CONFORME && etatId !== NON_CONFORME) return "Indiquez d’abord si vous êtes conforme à ce texte.";
   return null;
 }
 
 export const STATUS_OPTIONS: { value: TextStatus["key"]; label: string }[] = [
-  { value: "a-analyser", label: "À évaluer" },
-  { value: "conforme", label: "En règle" },
-  { value: "non-conforme", label: "À mettre en règle" },
-  { value: "indicatif", label: "Pour information" },
-  { value: "non-applicable", label: "Ne nous concerne pas" },
+  { value: "a-analyser", label: "Non analysé" },
+  { value: "conforme", label: "Conforme" },
+  { value: "non-conforme", label: "Non conforme" },
+  { value: "indicatif", label: "À titre indicatif" },
+  { value: "non-applicable", label: "Non applicable" },
 ];
 
 export function actionTone(statusId: number | null | undefined): Tone {
@@ -64,7 +64,7 @@ export function actionTone(statusId: number | null | undefined): Tone {
 /** Plain-language names for action statuses. */
 export const ACTION_COLUMNS = [
   { id: ACTION_EN_COURS, label: "En cours", hint: "Le travail est engagé", dot: "bg-brand-800" },
-  { id: ACTION_NON_EFFICACE, label: "À reprendre", hint: "Non efficace", dot: "bg-coral-600" },
+  { id: ACTION_NON_EFFICACE, label: "Non efficace", hint: "Le résultat n’est pas atteint", dot: "bg-coral-600" },
   { id: ACTION_EFFICACE, label: "Efficace", hint: "Terminée et vérifiée", dot: "bg-ok-600" },
 ] as const;
 

@@ -46,10 +46,10 @@ export function actionBlockReason(s: EvaluationState): string | null {
     return 'Indiquez d’abord si ce texte concerne votre entreprise.';
   }
   if (s.gestionetatId === INDICATIF) {
-    return 'Ce texte est « pour information » : aucune action n’est à prévoir.';
+    return 'Ce texte est « à titre indicatif » : aucune action n’est à prévoir.';
   }
   if (s.gestionetatId !== CONFORME && s.gestionetatId !== NON_CONFORME) {
-    return 'Indiquez d’abord si vous êtes en règle avec ce texte.';
+    return 'Indiquez d’abord si vous êtes conforme à ce texte.';
   }
   return null;
 }

@@ -111,7 +111,7 @@ export class NotificationsService {
         unread,
         item: {
           message:
-            list.length === 1 ? first.message : `${list.length} nouveaux textes ont été ajoutés à votre veille.`,
+            list.length === 1 ? first.message : `${list.length} nouveaux textes ajoutés`,
           texteTitre: list.length === 1 ? titles.get(first.texteId) ?? null : null,
           texteSocieteId: list.length === 1 ? first.texteSocieteId : null,
           createdAt: at.toISOString(),

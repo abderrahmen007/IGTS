@@ -146,7 +146,7 @@ export default function ActionsPage() {
         method: "PATCH",
         body: { applicabiliteId: APPLICABLE, gestionetatId: CONFORME },
       });
-      toast("Bravo, un texte de plus en règle.");
+      toast("Bravo, un texte de plus est conforme.");
       void reload();
       live?.reload();
     } catch (e) {
@@ -172,8 +172,8 @@ export default function ActionsPage() {
         title="Plan d’action"
         description={
           canEdit
-            ? "Les actions décidées pour vos textes à mettre en règle. Glissez une carte pour changer son statut."
-            : "Les actions décidées pour vos textes à mettre en règle (lecture seule)."
+            ? "Les actions décidées pour vos textes non conformes. Glissez une carte pour changer son statut."
+            : "Les actions décidées pour vos textes non conformes (lecture seule)."
         }
       />
 
@@ -183,7 +183,7 @@ export default function ActionsPage() {
         <div className="mb-5 flex flex-wrap gap-3">
           <Stat value={formatNumber(c.open)} label="en cours" />
           {c.overdue > 0 && <Stat value={formatNumber(c.overdue)} label="en retard" tone="coral" />}
-          <Stat value={formatNumber(c.byStatus.find((s) => s.id === 6)?.count ?? 0)} label="à reprendre" />
+          <Stat value={formatNumber(c.byStatus.find((s) => s.id === 6)?.count ?? 0)} label="non efficaces" />
           {c.averageProgress !== null && <Stat value={`${c.averageProgress} %`} label="d’avancement moyen" />}
         </div>
       )}
@@ -192,7 +192,7 @@ export default function ActionsPage() {
         <div className="mb-5 flex flex-col gap-3 rounded-[20px] bg-ok-100 p-4">
           <p className="flex items-center gap-2 text-[14.5px] font-semibold text-[#134f31]">
             <Icon name="check" size={20} strokeWidth={2.4} />
-            Toutes les actions de ces textes sont efficaces. Sont-ils maintenant en règle ?
+            Toutes les actions de ces textes sont efficaces. Sont-ils maintenant conformes ?
           </p>
           <ul className="flex flex-col gap-2">
             {data.readyForCompliance.map((t) => (
@@ -201,7 +201,7 @@ export default function ActionsPage() {
                   {t.titre}
                 </Link>
                 <Button size="sm" onClick={() => markCompliant(t.texteSocieteId)} loading={marking === t.texteSocieteId} className="bg-ok-700 hover:bg-[#0f5232]">
-                  Oui, en règle
+                  Oui, conformes
                 </Button>
               </li>
             ))}
@@ -242,8 +242,8 @@ export default function ActionsPage() {
         <div className="hidden flex-1 xl:block" />
         <SearchInput value={search} onChange={setSearch} placeholder="Rechercher une action…" className="w-full sm:w-60" />
         {domains.length > 1 && (
-          <Select aria-label="Domaine" value={domain} onChange={(e) => setDomain(e.target.value)} className="w-full sm:w-56">
-            <option value="">Tous les domaines</option>
+          <Select aria-label="Secteur" value={domain} onChange={(e) => setDomain(e.target.value)} className="w-full sm:w-56">
+            <option value="">Tous les secteurs</option>
             {domains.map((d) => (
               <option key={d} value={d}>
                 {d}
@@ -272,7 +272,7 @@ export default function ActionsPage() {
           <EmptyState
             icon="listChecks"
             title="Aucune action pour le moment"
-            description="Quand un texte est « à mettre en règle », décrivez l’action à mener depuis sa fiche : elle apparaîtra ici."
+            description="Quand un texte est « non conforme », décrivez l’action à mener depuis sa fiche : elle apparaîtra ici."
           />
         </div>
       )}

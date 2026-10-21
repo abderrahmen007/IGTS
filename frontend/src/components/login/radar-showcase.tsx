@@ -34,7 +34,7 @@ const CHIPS: { x: number; y: number; icon: IconName; label: string; color: strin
 ];
 
 const TOASTS: { x: number; y: number; icon: IconName; gem: string; title: string; sub: string; delay: string }[] = [
-  { x: 470, y: 20, icon: "sparkle", gem: "bg-brand-800 text-white", title: "Nouveau texte au JORT", sub: "Classé et résumé par l’IA", delay: "-0.8s" },
+  { x: 470, y: 20, icon: "sparkle", gem: "bg-brand-800 text-white", title: "Nouveau texte ajouté", sub: "Classé et résumé par l’IA", delay: "-0.8s" },
   { x: 540, y: 400, icon: "bell", gem: "bg-saffron-500 text-[#3a2400]", title: "Visite technique dans 7 jours", sub: "Rappel envoyé au responsable", delay: "-2.7s" },
 ];
 
@@ -42,13 +42,13 @@ const TOASTS: { x: number; y: number; icon: IconName; gem: string; title: string
 function MiniHome() {
   const side: [IconName, string][] = [
     ["home", "Accueil"],
-    ["inbox", "À évaluer"],
+    ["inbox", "Analyse des textes"],
     ["file", "Mes textes"],
     ["listChecks", "Plan d’action"],
     ["calendar", "Échéances"],
   ];
   const tiles: [IconName, string, number, string][] = [
-    ["inbox", "bg-saffron-500 text-[#3a2400]", 3, "à évaluer"],
+    ["inbox", "bg-saffron-500 text-[#3a2400]", 3, "textes non analysés"],
     ["clock", "bg-coral-600 text-white", 1, "action en retard"],
     ["calendar", "bg-brand-600 text-white", 2, "échéances ce mois"],
   ];

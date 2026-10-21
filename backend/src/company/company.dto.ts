@@ -31,10 +31,17 @@ export class ListTextsQuery {
   secteurId?: number;
 
   @IsOptional() @Type(() => Number) @IsInt()
+  themeId?: number;
+
+  @IsOptional() @Type(() => Number) @IsInt()
   typeId?: number;
 
   @IsOptional() @IsIn(TEXT_STATUSES as unknown as string[])
   status?: TextStatus;
+
+  /** "secteur": texts grouped by secteur then thème (former platform's order) */
+  @IsOptional() @IsIn(['recent', 'secteur'])
+  sort?: 'recent' | 'secteur';
 
   @IsOptional() @Type(() => Number) @IsInt() @Min(1)
   page?: number;

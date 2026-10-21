@@ -29,7 +29,7 @@ const NAV: Record<AccountType, { title?: string; items: NavItem[] }[]> = {
     {
       items: [
         { href: "/dashboard", label: "Accueil", icon: "home" },
-        { href: "/dashboard/evaluations", label: "À évaluer", icon: "inbox", badge: "toEvaluate" },
+        { href: "/dashboard/evaluations", label: "Analyse des textes", icon: "inbox", badge: "toEvaluate" },
         { href: "/dashboard/my-texts", label: "Mes textes", icon: "file" },
         { href: "/dashboard/actions", label: "Plan d’action", icon: "listChecks", badge: "actions" },
         { href: "/dashboard/echeances", label: "Échéances", icon: "calendar", badge: "echeances", isNew: true },

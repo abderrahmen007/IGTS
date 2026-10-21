@@ -189,7 +189,7 @@ function ActionsSection({ detail, onChange }: { detail: TextDetail; onChange: (d
         body: { applicabiliteId: APPLICABLE, gestionetatId: CONFORME },
       });
       onChange(d);
-      toast("Bravo, ce texte est maintenant en règle.");
+      toast("Bravo, ce texte est maintenant conforme.");
     } catch (err) {
       toast(err instanceof ApiError ? err.message : "Enregistrement impossible.", "error");
     } finally {
@@ -219,10 +219,10 @@ function ActionsSection({ detail, onChange }: { detail: TextDetail; onChange: (d
         <div className="animate-[pop_300ms_var(--ease-out-soft)] flex flex-col gap-3 rounded-2xl bg-ok-100 p-4 sm:flex-row sm:items-center">
           <Icon name="check" size={22} strokeWidth={2.4} className="shrink-0 text-ok-700" />
           <p className="flex-1 text-[14px] leading-relaxed text-[#134f31]">
-            <b>Toutes les actions de ce texte sont efficaces.</b> Le texte est-il maintenant en règle ?
+            <b>Toutes les actions de ce texte sont efficaces.</b> Le texte est-il maintenant conforme ?
           </p>
           <Button onClick={markCompliant} loading={marking} className="bg-ok-700 hover:bg-[#0f5232]">
-            Oui, il est en règle
+            Oui, il est conforme
           </Button>
         </div>
       )}
@@ -233,8 +233,8 @@ function ActionsSection({ detail, onChange }: { detail: TextDetail; onChange: (d
           {detail.applicabilite.id === 2
             ? "le texte ne vous concerne pas"
             : detail.etat?.id === 3
-              ? "le texte est pour information"
-              : "le texte n’est pas encore évalué"}
+              ? "le texte est à titre indicatif"
+              : "le texte n’est pas encore analysé"}
           . Elles ne comptent plus et n’envoient plus de rappels ; elles reviendront si vous changez votre évaluation.
         </LockedNote>
       )}
@@ -255,7 +255,7 @@ function ActionsSection({ detail, onChange }: { detail: TextDetail; onChange: (d
       {actionsAllowed && !detail.actions.length && (
         <p className="rounded-xl bg-paper px-4 py-3 text-[13.5px] text-ink-600">
           {detail.etat?.id === 2
-            ? "Ce texte est à mettre en règle : définissez l’action qui vous permettra d’y remédier."
+            ? "Ce texte est non conforme : un plan d’action est exigé. Définissez l’action qui vous permettra d’y remédier."
             : "Vous pouvez ajouter une action de suivi si besoin."}
         </p>
       )}

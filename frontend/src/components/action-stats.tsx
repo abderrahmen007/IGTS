@@ -44,7 +44,7 @@ function StatusSplit({ stats }: { stats: ActionStats }) {
   const parts = [
     { key: "done", label: "Efficaces", value: get(5), color: GREEN },
     { key: "active", label: "En cours", value: get(1), color: INDIGO },
-    { key: "retry", label: "À reprendre", value: get(6), color: SAFFRON },
+    { key: "retry", label: "Non efficaces", value: get(6), color: SAFFRON },
   ];
   const total = parts.reduce((n, p) => n + p.value, 0) || 1;
   return (
@@ -199,8 +199,8 @@ export function ActionStatsView({ version = 0 }: { version?: number }) {
           <AnimatedContent className="md:col-span-2 xl:col-span-3">
             <BentoGridItem
               className="h-full"
-              title="Par domaine"
-              description="Actions efficaces, en cours et en retard dans chaque domaine."
+              title="Par secteur"
+              description="Actions efficaces, en cours et en retard dans chaque secteur."
               action={<ChartLegend config={domainConfig} className="hidden 2xl:flex" />}
             >
               <ChartLegend config={domainConfig} className="2xl:hidden" />
@@ -230,7 +230,7 @@ export function ActionStatsView({ version = 0 }: { version?: number }) {
                 </BarChart>
               </ChartContainer>
               <DataTable
-                head={["Domaine", "Efficaces", "En cours", "En retard"]}
+                head={["Secteur", "Efficaces", "En cours", "En retard"]}
                 rows={domains.map((d) => [d.name, d.done, d.active, d.overdue])}
               />
             </BentoGridItem>

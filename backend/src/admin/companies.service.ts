@@ -274,7 +274,7 @@ export class AdminCompaniesService {
       where: { id: { in: dto.texteIds }, deleted: false },
       select: { id: true, secteurId: true, themeId: true },
     });
-    return this.assignment.assign(id, texts, { themed: false, message: 'Ce texte a été ajouté.' });
+    return this.assignment.assign(id, texts, { themed: false, message: 'Nouveau texte ajouté' });
   }
 
   async unassignText(id: number, texteSocieteId: number) {

@@ -59,14 +59,14 @@ function NextStep({ data, canEdit }: { data: CompanyOverview; canEdit: boolean }
   let secondary: { href: string; label: string } | null = null;
 
   if (s.toAnalyse > 0) {
-    title = `${plural(s.toAnalyse, "texte attend", "textes attendent")} votre avis`;
+    title = plural(s.toAnalyse, "texte non analysé", "textes non analysés");
     body = canEdit
-      ? "Pour chacun : lisez le résumé, dites s’il vous concerne, puis si vous êtes en règle. Environ une minute par texte."
-      : "Votre compte est en lecture seule : vous pouvez les consulter, un éditeur de votre équipe les évaluera.";
-    cta = { href: "/dashboard/evaluations", label: canEdit ? "Commencer l’évaluation" : "Consulter les textes" };
+      ? "Pour chacun : lisez le résumé, dites s’il est applicable, puis si vous êtes conforme. Environ une minute par texte."
+      : "Votre compte est en lecture seule : vous pouvez les consulter, un éditeur de votre équipe les analysera.";
+    cta = { href: "/dashboard/evaluations", label: canEdit ? "Analyser les textes" : "Consulter les textes" };
     secondary = { href: "/dashboard/my-texts?status=a-analyser", label: "Voir la liste" };
   } else if (s.nonConformeSansAction > 0) {
-    title = `${plural(s.nonConformeSansAction, "texte à mettre en règle attend", "textes à mettre en règle attendent")} une action`;
+    title = `${plural(s.nonConformeSansAction, "texte non conforme attend", "textes non conformes attendent")} une action`;
     body = "Décrivez ce qu’il faut faire, qui s’en charge et pour quand. Nous vous rappellerons l’échéance.";
     cta = { href: "/dashboard/my-texts?status=non-conforme", label: "Définir les actions" };
   } else if (s.overdueActions > 0) {
@@ -77,7 +77,7 @@ function NextStep({ data, canEdit }: { data: CompanyOverview; canEdit: boolean }
   } else {
     eyebrow = "Tout est à jour";
     title = "Bravo, rien ne vous attend";
-    body = "Aucun texte n’attend votre avis. Nous vous préviendrons dès qu’un nouveau texte arrive dans votre veille.";
+    body = "Aucun texte n’attend votre avis. Nous vous préviendrons dès qu’un nouveau texte sera ajouté.";
     cta = { href: "/dashboard/my-texts", label: "Parcourir mes textes" };
   }
 
@@ -131,26 +131,27 @@ function NextStep({ data, canEdit }: { data: CompanyOverview; canEdit: boolean }
 function Compliance({ data }: { data: CompanyOverview }) {
   const s = data.stats;
   const rows = [
-    { key: "conforme", label: "En règle", value: s.conforme, dot: "bg-ok-600" },
-    { key: "non-conforme", label: "À mettre en règle", value: s.nonConforme, dot: "bg-coral-600" },
-    { key: "indicatif", label: "Pour information", value: s.indicatif, dot: "bg-info-600" },
-    { key: "non-applicable", label: "Ne nous concerne pas", value: s.nonApplicable, dot: "bg-ink-300" },
+    { key: "conforme", label: "Conforme", value: s.conforme, dot: "bg-ok-600" },
+    { key: "non-conforme", label: "Non conforme", value: s.nonConforme, dot: "bg-coral-600" },
+    { key: "indicatif", label: "À titre indicatif", value: s.indicatif, dot: "bg-info-600" },
+    { key: "non-applicable", label: "Non applicable", value: s.nonApplicable, dot: "bg-ink-300" },
+    { key: "a-analyser", label: "Non analysé", value: s.toAnalyse, dot: "bg-saffron-500" },
   ];
   const base = s.conforme + s.nonConforme;
   return (
     <div
       data-tour="compliance"
-      className="flex flex-col items-center gap-6 rounded-[22px] border border-ink-200/80 bg-white p-6 sm:flex-row sm:items-center"
+      className="flex h-full flex-col items-center gap-6 rounded-[22px] border border-ink-200/80 bg-white p-6 sm:flex-row sm:items-center"
     >
       <Ring value={s.complianceRate} size={176}>
         <span className="tabular font-serif text-[42px] font-semibold leading-none text-ink-900">
           {s.complianceRate === null ? "—" : <CountUp to={s.complianceRate} format={(n) => formatPercent(n)} />}
         </span>
-        <span className="mt-1.5 text-[13px] text-ink-600">en règle</span>
+        <span className="mt-1.5 text-[13px] text-ink-600">conforme</span>
       </Ring>
       <div className="flex w-full min-w-0 flex-1 flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-base font-semibold text-ink-900">Conformité de l’entreprise</h2>
+          <h2 className="text-base font-semibold text-ink-900">Conformité globale</h2>
           {s.nonConformeSansAction > 0 && (
             <Badge tone="coral">{plural(s.nonConformeSansAction, "texte sans action", "textes sans action")}</Badge>
           )}
@@ -179,6 +180,61 @@ function Compliance({ data }: { data: CompanyOverview }) {
   );
 }
 
+// ─── Secteurs: compliance per secteur, next to the global ring ───────
+
+function Secteurs({ data }: { data: CompanyOverview }) {
+  return (
+    <div className="flex flex-col gap-3 rounded-[22px] border border-ink-200/80 bg-white p-5">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-base font-semibold text-ink-900">Conformité par secteur</h2>
+        <span className="text-[13px] text-ink-500">{plural(data.bySecteur.length, "secteur", "secteurs")}</span>
+      </div>
+      {data.bySecteur.length === 0 ? (
+        <p className="py-6 text-center text-sm text-ink-500">Aucun secteur pour le moment.</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          {data.bySecteur.map((d) => {
+            const color = domainColor(d.name);
+            return (
+              <Link
+                key={d.id}
+                href={`/dashboard/my-texts?secteurId=${d.id}`}
+                className="flex flex-col gap-2.5 rounded-[14px] border border-ink-150 px-4 py-3 transition-colors hover:border-ink-300 hover:bg-paper"
+              >
+                <span className="flex items-center gap-3">
+                  <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]", color.bg, color.text)}>
+                    <Icon name={domainIcon(d.name)} size={17} strokeWidth={1.8} />
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-[14px] font-semibold text-ink-900">{d.name}</span>
+                    <span className="text-[12.5px] text-ink-500">{plural(d.total, "texte", "textes")}</span>
+                  </span>
+                  <span className="tabular shrink-0 text-right">
+                    <b className="block text-[16px] font-semibold leading-none text-ink-900">{formatPercent(d.complianceRate)}</b>
+                    <span className="text-[11.5px] text-ink-500">conforme</span>
+                  </span>
+                </span>
+                <StackedBar
+                  segments={[
+                    { value: d.conforme, tone: "ok", label: "Conforme" },
+                    { value: d.nonConforme, tone: "coral", label: "Non conforme" },
+                    { value: d.indicatif, tone: "info", label: "À titre indicatif" },
+                  ]}
+                />
+                {d.toAnalyse > 0 && (
+                  <span className="text-[12px] font-medium text-saffron-700">
+                    {plural(d.toAnalyse, "texte non analysé", "textes non analysés")}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Page ────────────────────────────────────────────────────────────
 
 export function CompanyDashboard() {
@@ -198,9 +254,9 @@ export function CompanyDashboard() {
   let summary = "";
   if (s) {
     const parts: string[] = [];
-    if (s.toAnalyse > 0) parts.push(`${plural(s.toAnalyse, "texte attend", "textes attendent")} votre avis.`);
+    if (s.toAnalyse > 0) parts.push(`${plural(s.toAnalyse, "texte non analysé", "textes non analysés")}.`);
     if (s.overdueActions > 0) parts.push(`${plural(s.overdueActions, "action est", "actions sont")} en retard.`);
-    summary = parts.length ? parts.join(" ") : "Tout est à jour. Nous vous préviendrons dès qu’un nouveau texte arrive.";
+    summary = parts.length ? parts.join(" ") : "Tout est à jour. Nous vous préviendrons dès qu’un nouveau texte sera ajouté.";
   }
 
   return (
@@ -244,17 +300,17 @@ export function CompanyDashboard() {
           gem="bg-saffron-500 text-[#3a2400]"
           icon="inbox"
           value={s ? s.toAnalyse : null}
-          label="À évaluer"
-          sub={s?.toAnalyse === 1 ? "texte en attente" : "textes en attente"}
+          label={s?.toAnalyse === 1 ? "Texte non analysé" : "Textes non analysés"}
+          sub="Analyse des textes"
         />
         <ServiceTile
           dataTour="actions-tile"
           href="/dashboard/actions"
           gem={s && s.overdueActions > 0 ? "bg-coral-600 text-white" : "bg-brand-600 text-white"}
           icon="listChecks"
-          value={s ? (s.overdueActions > 0 ? s.overdueActions : s.openActions) : null}
-          label="Plan d’action"
-          sub={s && s.overdueActions > 0 ? "actions en retard" : "actions en cours"}
+          value={s ? s.openActions : null}
+          label={s?.openActions === 1 ? "Action" : "Actions"}
+          sub={s && s.overdueActions > 0 ? `Plan d’action · ${formatNumber(s.overdueActions)} en retard` : "Plan d’action"}
         />
         <ServiceTile
           onClick={() => openAssistant()}
@@ -268,8 +324,8 @@ export function CompanyDashboard() {
           gem="bg-info-600 text-white"
           icon="file"
           value={s ? s.total : null}
-          label="Ma veille"
-          sub="textes suivis"
+          label={s?.total === 1 ? "Texte" : "Textes"}
+          sub="Mes textes"
         />
       </section>
 
@@ -277,7 +333,7 @@ export function CompanyDashboard() {
         {data ? (
           <>
             <Compliance data={data} />
-            <NextStep data={data} canEdit={me.canEdit} />
+            <Secteurs data={data} />
           </>
         ) : (
           <>
@@ -288,7 +344,8 @@ export function CompanyDashboard() {
       </section>
 
       <AnimatedContent>
-        <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,560px)_minmax(0,1fr)]">
+        <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,540px)_minmax(0,1fr)]">
+          {data ? <NextStep data={data} canEdit={me.canEdit} /> : <Skeleton className="h-[270px] rounded-[22px]" />}
           <div className="flex flex-col gap-1 rounded-[22px] border border-ink-200/80 bg-white px-3 pb-3 pt-5">
             <div className="flex items-baseline justify-between px-3 pb-2">
               <h2 className="text-[17px] font-semibold text-ink-900">À faire bientôt</h2>
@@ -338,6 +395,10 @@ export function CompanyDashboard() {
             </p>
           </div>
 
+        </section>
+      </AnimatedContent>
+
+      <AnimatedContent>
           <div className="flex flex-col gap-1 rounded-[22px] border border-ink-200/80 bg-white px-3 pb-3 pt-5">
             <div className="flex items-baseline justify-between px-3 pb-2">
               <h2 className="text-[17px] font-semibold text-ink-900">Nouveautés de votre veille</h2>
@@ -346,6 +407,7 @@ export function CompanyDashboard() {
               </Link>
             </div>
             {!data && [0, 1, 2].map((i) => <Skeleton key={i} className="mx-3 my-2 h-14" />)}
+            <div className="grid grid-cols-1 lg:grid-cols-2">
             {data?.recentTexts.slice(0, 4).map((t) => (
               <Link
                 key={t.id}
@@ -365,60 +427,12 @@ export function CompanyDashboard() {
                 <span className="line-clamp-2 text-[14.5px] font-semibold leading-snug text-ink-900">{t.titre}</span>
               </Link>
             ))}
+            </div>
             {data?.recentTexts.length === 0 && (
               <p className="px-3 py-6 text-center text-sm text-ink-500">Aucun texte dans votre veille pour le moment.</p>
             )}
           </div>
-        </section>
       </AnimatedContent>
-
-      {data && data.bySecteur.length > 0 && (
-        <AnimatedContent>
-          <section className="flex flex-col gap-3">
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-[17px] font-semibold text-ink-900">Vos domaines</h2>
-              <span className="text-[13px] text-ink-500">{plural(data.bySecteur.length, "domaine suivi", "domaines suivis")}</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-              {data.bySecteur.map((d) => {
-                const color = domainColor(d.name);
-                return (
-                <Link
-                  key={d.id}
-                  href={`/dashboard/my-texts?secteurId=${d.id}`}
-                  className="lift flex flex-col gap-3 rounded-[18px] border border-ink-200/80 bg-white px-5 py-[18px]"
-                >
-                  <span className="flex items-center gap-3">
-                    <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px]", color.bg, color.text)}>
-                      <Icon name={domainIcon(d.name)} size={18} strokeWidth={1.8} />
-                    </span>
-                    <span className="flex min-w-0 flex-col">
-                      <span className="truncate text-[14.5px] font-semibold text-ink-900">{d.name}</span>
-                      <span className="text-[12.5px] text-ink-500">{plural(d.total, "texte", "textes")}</span>
-                    </span>
-                    {d.toAnalyse > 0 && (
-                      <span className="ml-auto shrink-0">
-                        <Badge tone="warn">{d.toAnalyse} à évaluer</Badge>
-                      </span>
-                    )}
-                  </span>
-                  <StackedBar
-                    segments={[
-                      { value: d.conforme, tone: "ok", label: "En règle" },
-                      { value: d.nonConforme, tone: "coral", label: "À mettre en règle" },
-                      { value: d.indicatif, tone: "info", label: "Pour information" },
-                    ]}
-                  />
-                  <span className="text-[12.5px] text-ink-600">
-                    <b className="font-semibold text-ink-900">{formatPercent(d.complianceRate)}</b> en règle
-                  </span>
-                </Link>
-              );
-              })}
-            </div>
-          </section>
-        </AnimatedContent>
-      )}
     </div>
   );
 }

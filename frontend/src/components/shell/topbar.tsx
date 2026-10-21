@@ -15,6 +15,13 @@ import { CommandPalette } from "../command-palette";
 const CHIP =
   "inline-flex h-11 items-center justify-center rounded-xl border border-ink-200/80 bg-white/70 text-ink-700 transition-colors hover:bg-white";
 
+/** Same wording as the former platform; older rows said "Ce texte a été ajouté." */
+function notificationLabel(message: string | null | undefined) {
+  if (!message) return "Nouvelle notification";
+  if (message.startsWith("Ce texte a été ajouté")) return "Nouveau texte ajouté";
+  return message;
+}
+
 function Notifications() {
   const live = useLive();
   const data = live?.notifications ?? null;
@@ -74,7 +81,7 @@ function Notifications() {
                     />
                     <div className="min-w-0">
                       <p className={cn("text-[13px]", n.read ? "text-ink-600" : "font-semibold text-ink-900")}>
-                        {n.message ?? "Nouvelle notification"}
+                        {notificationLabel(n.message)}
                       </p>
                       {n.texteTitre && <p className="mt-0.5 line-clamp-2 text-[13px] text-ink-500">{n.texteTitre}</p>}
                       <p className="mt-1 text-xs text-ink-400">{relativeTime(n.createdAt)}</p>

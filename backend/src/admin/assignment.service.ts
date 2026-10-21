@@ -88,7 +88,7 @@ export class AssignmentService {
       },
       select: { id: true, secteurId: true, themeId: true },
     });
-    return this.assign(companyId, texts, { themed: false, message: 'Ce texte a été ajouté.' });
+    return this.assign(companyId, texts, { themed: false, message: 'Nouveau texte ajouté' });
   }
 
   /** Sends a newly created text to every company subscribed to its theme. */
