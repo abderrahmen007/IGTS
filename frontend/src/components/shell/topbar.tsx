@@ -41,10 +41,7 @@ function Notifications() {
       className="w-[min(380px,calc(100vw-2rem))]"
       trigger={({ toggle, open }) => (
         <button
-          onClick={() => {
-            if (!open) handleOpen();
-            toggle();
-          }}
+          onClick={toggle}
           aria-expanded={open}
           aria-label={`Notifications${unread ? ` (${unread} non lues)` : ""}`}
           className={cn(CHIP, "relative w-11", open && "bg-white")}

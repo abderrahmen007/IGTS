@@ -20,12 +20,12 @@ export function Popover({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
+  // onOpenChange runs here, not inside the setOpen updater: React calls
+  // updaters while rendering, and the callback may update other components.
   const toggle = () => {
-    setOpen((cur) => {
-      const next = !cur;
-      onOpenChange?.(next);
-      return next;
-    });
+    const next = !open;
+    setOpen(next);
+    onOpenChange?.(next);
   };
 
   const close = () => {
@@ -60,7 +60,7 @@ export function Popover({
             className,
           )}
         >
-          {children(() => setOpen(false))}
+          {children(close)}
         </div>
       )}
     </div>
