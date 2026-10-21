@@ -497,6 +497,21 @@ export class CompanyService {
       }
     }
 
+    // Plan d’action exigé: a text answered « Non conforme » needs at least one
+    // open action, written now if it has none (same wording as the old platform).
+    if (next.applicabiliteId === APPLICABLE && next.gestionetatId === NON_CONFORME && !dto.action) {
+      const open = await this.prisma.plusaction.count({
+        where: { texteSocieteId: ts.id, gestionactionId: { in: OPEN_ACTION_STATES } },
+      });
+      if (open === 0) {
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'ACTION_REQUIRED',
+          message: 'Plan d’action exigé : décrivez l’action de mise en conformité avant d’enregistrer.',
+        });
+      }
+    }
+
     const today = new Date();
     await this.prisma.$transaction([
       this.prisma.texteSociete.update({
@@ -523,6 +538,7 @@ export class CompanyService {
         },
       }),
     ]);
+    if (dto.action && actionsAllowed(next)) await this.createAction(user, id, dto.action);
     this.notifier.refresh(user.ownerId!);
     return this.textDetail(user, id);
   }

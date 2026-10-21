@@ -12,6 +12,7 @@ import {
   Min,
   MinLength,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 
 export const TEXT_STATUSES = [
@@ -50,26 +51,6 @@ export class ListTextsQuery {
   pageSize?: number;
 }
 
-export class EvaluateTextDto {
-  /** 1 Applicable · 2 Non applicable · 3 Non analysé */
-  @Type(() => Number) @IsInt() @IsIn([1, 2, 3])
-  applicabiliteId!: number;
-
-  /** 1 Conforme · 2 Non conforme · 3 À titre indicatif · 4 Non analysé — only when applicable */
-  @IsOptional() @ValidateIf((_o, v) => v !== null) @Type(() => Number) @IsInt() @IsIn([1, 2, 3, 4])
-  gestionetatId?: number | null;
-
-  @IsOptional() @IsString() @MaxLength(2000)
-  comment?: string;
-
-  /**
-   * The new answer puts the text's open actions on hold (e.g. "ne nous
-   * concerne pas"). The client must confirm it after being told how many.
-   */
-  @IsOptional() @IsBoolean()
-  confirmHoldActions?: boolean;
-}
-
 export class CreateActionDto {
   @IsString() @MinLength(3) @MaxLength(2000)
   description!: string;
@@ -97,6 +78,33 @@ export class CreateActionDto {
   /** Progress in % (legacy column `courrielResponsable`) */
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(100)
   effectivite?: number;
+}
+
+export class EvaluateTextDto {
+  /** 1 Applicable · 2 Non applicable · 3 Non analysé */
+  @Type(() => Number) @IsInt() @IsIn([1, 2, 3])
+  applicabiliteId!: number;
+
+  /** 1 Conforme · 2 Non conforme · 3 À titre indicatif · 4 Non analysé — only when applicable */
+  @IsOptional() @ValidateIf((_o, v) => v !== null) @Type(() => Number) @IsInt() @IsIn([1, 2, 3, 4])
+  gestionetatId?: number | null;
+
+  @IsOptional() @IsString() @MaxLength(2000)
+  comment?: string;
+
+  /**
+   * The new answer puts the text's open actions on hold (e.g. "ne nous
+   * concerne pas"). The client must confirm it after being told how many.
+   */
+  @IsOptional() @IsBoolean()
+  confirmHoldActions?: boolean;
+
+  /**
+   * Action saved together with the evaluation. Required when the text becomes
+   * « Non conforme » and has no open action yet (plan d’action exigé).
+   */
+  @IsOptional() @ValidateNested() @Type(() => CreateActionDto)
+  action?: CreateActionDto;
 }
 
 export class UpdateActionDto {

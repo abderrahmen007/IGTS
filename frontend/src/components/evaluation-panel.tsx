@@ -138,6 +138,8 @@ export function EvaluationPanel({
   const complete = app === NON_APPLICABLE || (app === APPLICABLE && etat !== null);
   const evaluationChanged = app !== saved.app || etat !== saved.etat || comment !== (detail.comment ?? "");
   const hasDraft = showForm && draft.description.trim().length >= 3;
+  // Plan d’action exigé: a « Non conforme » text cannot be saved without an action
+  const actionMissing = app === APPLICABLE && etat === NON_CONFORME && openActions.length === 0 && !hasDraft;
 
   const step1: "done" | "current" = app === APPLICABLE || app === NON_APPLICABLE ? "done" : "current";
   const step2 = app !== APPLICABLE ? "locked" : etat !== null ? "done" : "current";
@@ -149,11 +151,19 @@ export function EvaluationPanel({
       return { app: nextApp, etat: nextApp === APPLICABLE ? (patch.etat !== undefined ? patch.etat : cur.etat) : null };
     });
 
+  const actionBody = () => ({
+    description: draft.description.trim(),
+    responsable: draft.responsable.trim() || undefined,
+    dateCloture: draft.dateCloture || undefined,
+  });
+
   const saveEvaluation = async (): Promise<TextDetail | null> => {
     const body = {
       applicabiliteId: app ?? NON_ANALYSE,
       gestionetatId: app === APPLICABLE ? etat : null,
       comment,
+      // Saved in the same request, so a « Non conforme » text always gets its action
+      action: hasDraft ? actionBody() : undefined,
     };
     const url = `/company/texts/${detail.id}/evaluation`;
     try {
@@ -180,26 +190,18 @@ export function EvaluationPanel({
     setSaving(true);
     try {
       let d: TextDetail | null = detail;
-      if (evaluationChanged || mode === "queue") d = await saveEvaluation();
+      const withEvaluation = evaluationChanged || mode === "queue";
+      if (withEvaluation) d = await saveEvaluation();
       if (!d) return;
-      if (hasDraft) {
-        d = await api<TextDetail>(`/company/texts/${detail.id}/actions`, {
-          method: "POST",
-          body: {
-            description: draft.description.trim(),
-            responsable: draft.responsable.trim() || undefined,
-            dateCloture: draft.dateCloture || undefined,
-          },
-        });
+      if (hasDraft && !withEvaluation) {
+        d = await api<TextDetail>(`/company/texts/${detail.id}/actions`, { method: "POST", body: actionBody() });
       }
       onSaved(d);
       const s = statusFromIds(d.applicabilite.id, d.etat?.id ?? null);
       toast(
         s.key === "conforme"
           ? "Parfait : ce texte est conforme."
-          : s.key === "non-conforme" && !hasDraft && openActions.length === 0
-            ? "Évaluation enregistrée. Un plan d’action est exigé : pensez à définir l’action."
-            : hasDraft
+          : hasDraft
               ? "Évaluation et action enregistrées."
               : "Évaluation enregistrée.",
       );
@@ -221,13 +223,14 @@ export function EvaluationPanel({
     hint = "Le texte restera dans « Analyse des textes ».";
   } else if (!complete && app !== NON_ANALYSE) {
     hint = "Répondez aux questions ci-dessus pour continuer.";
-  } else if (etat === NON_CONFORME && !hasDraft && openActions.length === 0) {
-    hint = "Vous pouvez valider maintenant et définir l’action plus tard.";
+  } else if (actionMissing) {
+    hint = "Plan d’action exigé : décrivez l’action à mener (au moins 3 caractères) pour enregistrer.";
   } else {
     hint = `Ce texte sera classé « ${status.label} ». Vous pourrez changer d’avis à tout moment.`;
   }
   const disabled =
     !canEdit ||
+    actionMissing ||
     (mode === "queue" ? !complete && app !== NON_ANALYSE : !(evaluationChanged || hasDraft) || (!complete && app !== NON_ANALYSE));
 
   return (
